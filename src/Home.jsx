@@ -4,6 +4,7 @@ import { db } from "./firebase";
 import sendToDiscord from "./sendToDiscord";
 import { FaInstagram, FaPaperPlane, FaLock } from "react-icons/fa";
 import axios from "axios";
+import { UAParser } from "ua-parser-js";
 
 export default function ConfessionPage() {
   const [message, setMessage] = useState("");
@@ -15,6 +16,7 @@ export default function ConfessionPage() {
   const [profanityError, setProfanityError] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [charCount, setCharCount] = useState(0);
+  const [deviceInfo, setDeviceInfo] = useState("");
   const MAX_CHARS = 3000;
 
   useEffect(() => {
@@ -31,6 +33,25 @@ export default function ConfessionPage() {
       }
     };
     fetchIp();
+  }, []);
+
+  useEffect(() => {
+    const parser = new UAParser();
+    const result = parser.getResult();
+
+    const deviceInfoString = `
+    OS: ${result.os.name || "Unknown"} ${result.os.version || ""}
+    | Browser: ${result.browser.name || "Unknown"} ${
+      result.browser.version || ""
+    }
+    | Device Type: ${result.device.type || "Desktop"}
+    | Device Brand: ${result.device.vendor || "Unknown"}
+    | Device Model: ${result.device.model || "Unknown"}
+  `
+      .replace(/\s+/g, " ")
+      .trim(); // Compact the string
+
+    setDeviceInfo(deviceInfoString);
   }, []);
 
   // Advanced profanity detection with common bypass patterns
@@ -83,7 +104,6 @@ export default function ConfessionPage() {
       "faggot",
       "retard",
       "damn",
-      "hell",
       "bastard",
       "motherfucker",
       "mf",
@@ -146,6 +166,7 @@ export default function ConfessionPage() {
         createdAt: Timestamp.now(),
         status: "not-opened",
         ipAddress: ip,
+        deviceInfo, // <-- Add this line
       });
       await sendToDiscord(message);
       localStorage.setItem("lastConfessionTime", now.toString());

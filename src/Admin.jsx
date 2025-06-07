@@ -255,23 +255,27 @@ export default function AdminPage() {
             {/* Confession Box */}
             <div
               ref={confessionRef}
-              className="bg-black text-white rounded-2xl shadow-xl border border-white overflow-hidden"
+              className="rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden backdrop-blur"
               style={{
                 width: "min(90vw, 500px)",
                 boxSizing: "border-box",
+                background: "linear-gradient(145deg, #1f1f1f, #2c2c2c)", // black-gray gradient
               }}
             >
-              <div className="bg-white text-black py-4 px-6 font-bold text-center text-xl border-b border-gray-300">
+              {/* Header */}
+              <div className="py-4 px-6 font-bold text-center text-xl border-b border-gray-700 bg-gradient-to-r from-white to-gray-200 text-black shadow-inner">
                 ANONYMOUS CONFESSION
               </div>
 
-              <div className="bg-black p-6 text-white text-center whitespace-pre-wrap word-break">
-                <p className="text-lg leading-relaxed">
+              {/* Message */}
+              <div className="p-6 text-white text-center whitespace-pre-wrap break-words bg-gradient-to-br from-black via-gray-900 to-gray-800">
+                <p className="text-lg leading-relaxed drop-shadow-[0_1px_1px_rgba(255,255,255,0.1)]">
                   {selectedConfession.message}
                 </p>
               </div>
 
-              <div className="bg-black py-4 px-6 text-gray-400 text-sm text-center border-t border-gray-800">
+              {/* Timestamp */}
+              <div className="py-4 px-6 text-gray-400 text-sm text-center border-t border-gray-700 bg-gradient-to-r from-gray-900 to-black">
                 {formatTimestamp(selectedConfession.createdAt)}
               </div>
             </div>

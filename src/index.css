@@ -7,5 +7,5 @@
 
 body {
   @apply bg-black text-white min-h-screen;
-  font-family: "Poppins", sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
