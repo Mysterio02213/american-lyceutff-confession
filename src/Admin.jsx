@@ -219,36 +219,69 @@ export default function AdminPage() {
       <main className="flex-1 flex flex-col items-center justify-center p-6 relative">
         {selectedConfession ? (
           <>
-            {/* IP Address */}
-            <div
-              className="absolute top-6 right-6 text-xs text-gray-400 cursor-pointer hover:text-white group"
-              onClick={() => {
-                if (selectedConfession.ipAddress) {
-                  navigator.clipboard.writeText(selectedConfession.ipAddress);
-                  toast.success("IP copied to clipboard!");
-                }
-              }}
-              title="Copy IP"
-            >
-              <div className="flex items-center gap-1">
-                <span className="bg-gray-800 p-1 rounded group-hover:bg-gray-700">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
-                </span>
-                <strong className="mr-1">IP:</strong>
-                {selectedConfession.ipAddress || "Unknown"}
+            <div className="absolute top-6 right-6 text-xs text-gray-400 group text-right">
+              <div className="flex flex-col items-end gap-1">
+                {/* IP */}
+                <div
+                  className="flex items-center gap-1 cursor-pointer hover:text-white"
+                  onClick={() => {
+                    if (selectedConfession.ipAddress) {
+                      navigator.clipboard.writeText(
+                        selectedConfession.ipAddress
+                      );
+                      toast.success("IP copied to clipboard!");
+                    }
+                  }}
+                  title="Copy IP"
+                >
+                  <span className="bg-gray-800 p-1 rounded group-hover:bg-gray-700">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                  </span>
+                  <strong>IP:</strong>{" "}
+                  {selectedConfession.ipAddress || "Unknown"}
+                </div>
+
+                {/* Device Info (if exists) */}
+                {selectedConfession.deviceInfo && (
+                  <div className="text-gray-300 text-xs bg-gray-800 p-3 rounded mt-2 w-full max-w-xs shadow-md">
+                    <strong className="block mb-2 text-white text-left">
+                      Device Info:
+                    </strong>
+                    <div className="space-y-1">
+                      {selectedConfession.deviceInfo
+                        .split(" | ")
+                        .map((entry, idx) => {
+                          const [label, value] = entry
+                            .split(":")
+                            .map((s) => s.trim());
+                          return (
+                            <div
+                              key={idx}
+                              className="flex justify-between border-b border-gray-700 pb-1"
+                            >
+                              <span className="text-gray-400">{label}:</span>
+                              <span className="text-white text-right ml-2">
+                                {value || "Unknown"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
