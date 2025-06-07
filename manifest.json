@@ -1,11 +1,10 @@
 {
   "name": "American Lycetuff Confession Admin",
-  "short_name": "ConfessionAdmin",
+  "short_name": "AdminConfess",
   "start_url": "/admin-mysterio-lahorelahore",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -17,6 +16,5 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ],
-  "description": "American Lycetuff Confession Admin"
+  ]
 }
