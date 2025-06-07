@@ -224,12 +224,12 @@ export default function ConfessionPage() {
                 />
                 <div
                   className={`absolute bottom-3 right-3 text-xs ${
-                    charCount > MAX_CHARS * 0.9
+                    MAX_CHARS - charCount <= MAX_CHARS * 0.1
                       ? "text-amber-300"
                       : "text-gray-400"
                   }`}
                 >
-                  {charCount}/{MAX_CHARS}
+                  {MAX_CHARS - charCount}
                 </div>
               </div>
 
@@ -411,7 +411,7 @@ export default function ConfessionPage() {
           {/* Security footer */}
           <div className="p-4 bg-black/50 border-t border-white/5 flex items-center justify-center gap-2 text-gray-300 text-sm">
             <FaLock className="text-white" />
-            <span>All submissions are monitored for inappropriate content</span>
+            <span>All submissions are sent anonymously.</span>
           </div>
         </div>
 
@@ -453,8 +453,8 @@ export default function ConfessionPage() {
       <footer className="relative z-10 w-full text-center py-6 text-gray-500 text-sm border-t border-white/5 mt-auto">
         <div className="max-w-4xl mx-auto px-4">
           <p>
-            © {new Date().getFullYear()} American Lycetuff Confessions. Abusive
-            content will be removed and may result in permanent ban.
+            © {new Date().getFullYear()} American Lycetuff Confessions.
+            Everything Is Anonymous.
           </p>
         </div>
       </footer>
