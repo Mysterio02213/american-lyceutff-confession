@@ -129,7 +129,7 @@ export default function AdminPage() {
       {/* Sidebar */}
       <aside
         className={`
-    fixed md:static top-0 left-0 h-[calc(100vh-36px)] w-64 md:w-80 bg-gray-900 border-r border-gray-700 p-5 z-40 transform transition-transform duration-300
+    fixed md:static top-0 left-0 h-[calc(100vh-36px)] w-64 md:w-80 bg-gray-900 border-r border-gray-700 p-5 pt-20 md:pt-5 z-40 transform transition-transform duration-300
     ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
   `}
       >
