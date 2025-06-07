@@ -11,7 +11,7 @@ import {
 import { db } from "./firebase";
 import html2canvas from "html2canvas";
 import { Toaster, toast } from "react-hot-toast";
-import { Eye, FileText, Trash2, Download, Filter, X } from "lucide-react";
+import { Eye, FileText, Trash2, Download, Filter, X, Menu } from "lucide-react";
 
 export default function AdminPage() {
   const [confessions, setConfessions] = useState([]);
@@ -19,6 +19,7 @@ export default function AdminPage() {
   const [showOnlyNew, setShowOnlyNew] = useState(false);
   const confessionRef = useRef();
   const [searchTerm, setSearchTerm] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
@@ -118,8 +119,20 @@ export default function AdminPage() {
         }}
       />
 
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="md:hidden absolute top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg focus:outline-none"
+      >
+        {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
       {/* Sidebar */}
-      <aside className="w-full md:w-80 bg-gray-900 border-b md:border-r border-gray-700 p-5">
+      <aside
+        className={`
+    fixed md:static top-0 left-0 h-[calc(100vh-36px)] w-64 md:w-80 bg-gray-900 border-r border-gray-700 p-5 z-40 transform transition-transform duration-300
+    ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+  `}
+      >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Confessions</h2>
           <div className="relative">
