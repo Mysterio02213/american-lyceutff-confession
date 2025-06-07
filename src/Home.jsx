@@ -12,6 +12,7 @@ export default function ConfessionPage() {
   const [success, setSuccess] = useState(null);
   const [ip, setIp] = useState("");
   const [cooldownError, setCooldownError] = useState(false);
+  const [profanityError, setProfanityError] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [charCount, setCharCount] = useState(0);
   const MAX_CHARS = 3000;
@@ -32,10 +33,103 @@ export default function ConfessionPage() {
     fetchIp();
   }, []);
 
+  // Advanced profanity detection with common bypass patterns
+  const containsProfanity = (text) => {
+    if (!text) return false;
+
+    // Normalize text for better matching
+    const normalizedText = text
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, " ") // Remove special characters
+      .replace(/\s+/g, " ") // Collapse multiple spaces
+      .replace(/(.)\1{2,}/g, "$1") // Reduce repeated characters (e.g. fuuuuuck -> fuck)
+      .replace(/[0-9]/g, (char) => {
+        // Leetspeak conversion
+        const leetMap = {
+          1: "i",
+          3: "e",
+          4: "a",
+          5: "s",
+          0: "o",
+          "@": "a",
+          $: "s",
+        };
+        return leetMap[char] || char;
+      });
+
+    // Comprehensive profanity list with common variations
+    const profanityPatterns = [
+      "bsdk",
+      "chutiya",
+      "behnchod",
+      "penchod",
+      "ghasti",
+      "randi",
+      "fuck",
+      "shit",
+      "asshole",
+      "bitch",
+      "cunt",
+      "nigger",
+      "nigga",
+      "whore",
+      "slut",
+      "pussy",
+      "dick",
+      "cock",
+      "piss",
+      "crap",
+      "fag",
+      "faggot",
+      "retard",
+      "damn",
+      "hell",
+      "bastard",
+      "motherfucker",
+      "mf",
+      "screw",
+      "twat",
+      "wanker",
+      "bollocks",
+      "arse",
+      "arsehole",
+      "bloody",
+      "bugger",
+      "cow",
+      "cracker",
+      "chink",
+      "gook",
+      "kike",
+      "spic",
+      "wetback",
+      "f u c k",
+      "s h i t",
+      "a s s",
+      "b i t c h",
+      "d i c k",
+      "p u s s y",
+    ];
+
+    // Check for profanity patterns
+    return profanityPatterns.some(
+      (term) =>
+        normalizedText.includes(term) ||
+        normalizedText.includes(term.split("").join(" ")) // Check spaced versions
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setCooldownError(false);
+    setProfanityError(false);
+
     if (!message.trim() || !agreed) return;
+
+    // Check for profanity
+    if (containsProfanity(message)) {
+      setProfanityError(true);
+      return;
+    }
 
     const lastSentTime = localStorage.getItem("lastConfessionTime");
     const now = Date.now();
@@ -67,18 +161,19 @@ export default function ConfessionPage() {
   };
 
   useEffect(() => {
-    if (success !== null || cooldownError) {
+    if (success !== null || cooldownError || profanityError) {
       setShowFeedback(true);
       const timer = setTimeout(() => {
         setShowFeedback(false);
         setTimeout(() => {
           setSuccess(null);
           setCooldownError(false);
+          setProfanityError(false);
         }, 500);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [success, cooldownError]);
+  }, [success, cooldownError, profanityError]);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-black via-gray-900 to-black text-white overflow-hidden relative font-sans">
@@ -106,7 +201,7 @@ export default function ConfessionPage() {
             American Lycetuff Confessions
           </h1>
           <p className="text-gray-400 max-w-xl mx-auto">
-            Share your thoughts anonymously and securely
+            Share your thoughts anonymously and respectfully
           </p>
         </div>
       </header>
@@ -127,7 +222,13 @@ export default function ConfessionPage() {
                   onChange={(e) => setMessage(e.target.value)}
                   required
                 />
-                <div className="absolute bottom-3 right-3 text-xs text-gray-400">
+                <div
+                  className={`absolute bottom-3 right-3 text-xs ${
+                    charCount > MAX_CHARS * 0.9
+                      ? "text-amber-300"
+                      : "text-gray-400"
+                  }`}
+                >
                   {charCount}/{MAX_CHARS}
                 </div>
               </div>
@@ -146,13 +247,14 @@ export default function ConfessionPage() {
                 </div>
                 <label htmlFor="terms" className="text-gray-300 text-sm">
                   <p className="font-medium text-white mb-1">
-                    Confession Policy
+                    Content Guidelines
                   </p>
                   <p>
-                    I understand that my confession will be stored permanently
-                    and cannot be deleted. I confirm it contains no abusive
-                    language, hate speech, or personally identifiable
-                    information.
+                    I confirm this confession contains no abusive language, hate
+                    speech, or personally identifiable information. I understand
+                    that confessions violating these rules will be deleted
+                    without notice and may result in a permanent ban from this
+                    service.
                   </p>
                 </label>
               </div>
@@ -277,13 +379,39 @@ export default function ConfessionPage() {
                   </p>
                 </div>
               )}
+              {profanityError && (
+                <div
+                  className={`p-4 rounded-xl bg-white/10 border border-white/30 transition-opacity duration-500 ${
+                    showFeedback ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  <p className="text-white flex items-center gap-2">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      ></path>
+                    </svg>
+                    Your confession contains inappropriate language. Please
+                    remove it.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Security footer */}
           <div className="p-4 bg-black/50 border-t border-white/5 flex items-center justify-center gap-2 text-gray-300 text-sm">
             <FaLock className="text-white" />
-            <span>Your confession is end-to-end anonymous and secure</span>
+            <span>All submissions are monitored for inappropriate content</span>
           </div>
         </div>
 
@@ -325,8 +453,8 @@ export default function ConfessionPage() {
       <footer className="relative z-10 w-full text-center py-6 text-gray-500 text-sm border-t border-white/5 mt-auto">
         <div className="max-w-4xl mx-auto px-4">
           <p>
-            © {new Date().getFullYear()} American Lycetuff Confessions. All
-            submissions are anonymous and permanent.
+            © {new Date().getFullYear()} American Lycetuff Confessions. Abusive
+            content will be removed and may result in permanent ban.
           </p>
         </div>
       </footer>
