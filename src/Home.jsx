@@ -229,25 +229,25 @@ export default function ConfessionPage() {
 
       {/* Main content */}
       <main className="relative z-10 flex flex-col items-center justify-center px-4 pb-16">
-        <div className="w-full max-w-2xl backdrop-blur-sm bg-black/30 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="w-full max-w-2xl bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80 border border-white/10 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.45)] backdrop-blur-xl overflow-hidden transition-all duration-300 hover:shadow-[0_12px_48px_0_rgba(0,0,0,0.65)]">
           {/* Form container */}
-          <div className="p-6 md:p-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="p-8 md:p-12">
+            <form onSubmit={handleSubmit} className="space-y-8">
               {/* Textarea */}
-              <div className="relative">
+              <div className="relative group">
                 <textarea
                   id="confession"
-                  className="w-full min-h-[180px] p-5 rounded-xl bg-black/30 text-white border border-white/10 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-white transition-all duration-300 resize-none"
+                  className="w-full min-h-[180px] p-6 rounded-2xl bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border border-white/10 shadow-md focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-300 resize-none group-hover:border-white/20"
                   placeholder="Type your anonymous confession..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   required
                 />
                 <div
-                  className={`absolute bottom-3 right-3 text-xs ${
+                  className={`absolute bottom-4 right-6 text-xs font-mono px-2 py-1 rounded bg-gray-900/50 border border-white/10 shadow-sm ${
                     MAX_CHARS - charCount <= MAX_CHARS * 0.1
-                      ? "text-amber-300"
-                      : "text-gray-400"
+                      ? "text-amber-300 border-amber-300/30"
+                      : "text-gray-300"
                   }`}
                 >
                   {MAX_CHARS - charCount}
@@ -255,27 +255,28 @@ export default function ConfessionPage() {
               </div>
 
               {/* Agreement checkbox */}
-              <div className="flex items-start gap-3 p-4 bg-black/30 rounded-xl border border-white/5">
-                <div className="mt-0.5">
-                  <input
-                    type="checkbox"
-                    id="terms"
-                    checked={agreed}
-                    onChange={(e) => setAgreed(e.target.checked)}
-                    required
-                    className="accent-white scale-125"
-                  />
-                </div>
-                <label htmlFor="terms" className="text-gray-300 text-sm">
-                  <p className="font-medium text-white mb-1">
-                    Content Guidelines
+              <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-2xl border border-white/10 shadow group transition-all duration-300 hover:border-white/30 hover:shadow-lg">
+                <input
+                  type="checkbox"
+                  id="terms"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  required
+                  className="accent-white scale-125 mt-1 transition-all duration-200"
+                />
+                <label
+                  htmlFor="terms"
+                  className="text-gray-300 text-sm cursor-pointer"
+                >
+                  <p className="font-semibold text-white mb-1 tracking-wide">
+                    Important Disclaimer
                   </p>
                   <p>
-                    I confirm this confession contains no abusive language, hate
-                    speech, or personally identifiable information. I understand
-                    that confessions violating these rules will be deleted
-                    without notice and may result in a permanent ban from this
-                    service.
+                    By submitting this confession, I understand that it will not
+                    be deleted under any circumstance once posted. I agree not
+                    to include any abusive language, hate speech, false rumors,
+                    or personally identifiable information. Violating these
+                    guidelines may lead to a permanent ban from this platform.
                   </p>
                 </label>
               </div>
@@ -284,16 +285,14 @@ export default function ConfessionPage() {
               <button
                 type="submit"
                 disabled={loading || !agreed}
-                className={`w-full py-4 rounded-xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 ${
-                  loading || !agreed
-                    ? "bg-gray-800 text-gray-500 cursor-not-allowed"
-                    : "bg-white text-black hover:bg-gray-200 hover:shadow-lg"
+                className={`w-full py-4 rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:scale-105 hover:shadow-2xl hover:border-white/30 hover:bg-gradient-to-br hover:from-gray-800 hover:via-gray-900 hover:to-black active:scale-95 ${
+                  loading || !agreed ? "opacity-60 cursor-not-allowed" : ""
                 }`}
               >
                 {loading ? (
                   <>
                     <svg
-                      className="animate-spin h-5 w-5 text-black"
+                      className="animate-spin h-5 w-5 text-white"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -316,8 +315,8 @@ export default function ConfessionPage() {
                   </>
                 ) : (
                   <>
-                    <FaPaperPlane className="text-black" />
-                    Send Anonymously
+                    <FaPaperPlane className="text-white drop-shadow" />
+                    <span className="drop-shadow">Send Anonymously</span>
                   </>
                 )}
               </button>
@@ -430,26 +429,30 @@ export default function ConfessionPage() {
           </div>
 
           {/* Security footer */}
-          <div className="p-4 bg-black/50 border-t border-white/5 flex items-center justify-center gap-2 text-gray-300 text-sm">
+          <div className="p-4 bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-t border-white/10 flex items-center justify-center gap-2 text-gray-300 text-sm shadow-inner">
             <FaLock className="text-white" />
             <span>Your confession is end-to-end anonymous and secure</span>
           </div>
         </div>
 
         {/* Instagram links */}
-        <div className="mt-8 flex flex-col md:flex-row justify-center gap-6 text-gray-300">
+        <div className="mt-12 flex flex-col md:flex-row justify-center gap-8 text-gray-300">
           <a
             href="https://www.instagram.com/americanlycetuff_confession/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 hover:text-white transition"
+            className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group"
           >
-            <div className="bg-black border border-white/20 p-2 rounded-lg">
-              <FaInstagram className="text-white text-xl" />
+            <div className="bg-black border border-white/20 p-3 rounded-xl shadow group-hover:border-white/40 transition">
+              <FaInstagram className="text-white text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Confession Page</p>
-              <p className="font-medium">americanlycetuff_confession</p>
+              <p className="text-xs text-gray-500 group-hover:text-white transition">
+                Confession Page
+              </p>
+              <p className="font-medium text-white group-hover:text-gray-200 transition">
+                americanlycetuff_confession
+              </p>
             </div>
           </a>
 
@@ -457,14 +460,18 @@ export default function ConfessionPage() {
             href="https://www.instagram.com/mysterio_notfound/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 hover:text-white transition"
+            className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group"
           >
-            <div className="bg-black border border-white/20 p-2 rounded-lg">
-              <FaInstagram className="text-white text-xl" />
+            <div className="bg-black border border-white/20 p-3 rounded-xl shadow group-hover:border-white/40 transition">
+              <FaInstagram className="text-white text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Founder</p>
-              <p className="font-medium">mysterio_notfound</p>
+              <p className="text-xs text-gray-500 group-hover:text-white transition">
+                Founder
+              </p>
+              <p className="font-medium text-white group-hover:text-gray-200 transition">
+                mysterio_notfound
+              </p>
             </div>
           </a>
         </div>
