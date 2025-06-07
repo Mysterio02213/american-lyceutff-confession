@@ -185,14 +185,14 @@ export default function AdminPage() {
                 key={confession.id}
                 onClick={() => handleSelect(confession)}
                 className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border
-          ${
-            selectedConfession?.id === confession.id
-              ? "bg-white text-black border-white"
-              : confession.status === "not-opened"
-              ? "bg-gray-800 border-white text-white"
-              : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
-          }
-        `}
+            ${
+              selectedConfession?.id === confession.id
+                ? "bg-white text-black border-white"
+                : confession.status === "not-opened"
+                ? "bg-gray-800 border-white text-white"
+                : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
+            }
+          `}
               >
                 <div className="mt-0.5 shrink-0">
                   {confession.status === "not-opened" ? (
@@ -201,8 +201,8 @@ export default function AdminPage() {
                     <FileText className="w-4 h-4" />
                   )}
                 </div>
-                <div className="flex-1 break-words">
-                  <div className="font-medium whitespace-pre-wrap break-words">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="font-medium whitespace-pre-wrap break-words break-all max-w-full overflow-hidden line-clamp-2">
                     {confession.message || "Confession"}
                   </div>
                   <div className="text-xs mt-1">
