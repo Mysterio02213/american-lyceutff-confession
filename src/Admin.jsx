@@ -301,8 +301,8 @@ export default function AdminPage() {
               </div>
 
               {/* Message */}
-              <div className="p-6 text-white text-center whitespace-pre-wrap break-words bg-gradient-to-br from-black via-gray-900 to-gray-800">
-                <p className="text-lg leading-relaxed drop-shadow-[0_1px_1px_rgba(255,255,255,0.1)]">
+              <div className="p-6 text-white text-center font-bold whitespace-pre-wrap break-words bg-gradient-to-br from-black via-gray-900 to-gray-800">
+                <p className="text-lg leading-relaxed text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.25)]">
                   {selectedConfession.message}
                 </p>
               </div>
