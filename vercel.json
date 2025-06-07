@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/android-chrome-512x512.png",
+      "destination": "/android-chrome-512x512.png"
+    },
+    {
+      "source": "/manifest.json",
+      "destination": "/manifest.json"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
