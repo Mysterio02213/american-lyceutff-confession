@@ -411,7 +411,7 @@ export default function ConfessionPage() {
           {/* Security footer */}
           <div className="p-4 bg-black/50 border-t border-white/5 flex items-center justify-center gap-2 text-gray-300 text-sm">
             <FaLock className="text-white" />
-            <span>All submissions are sent anonymously.</span>
+            <span>Your confession is end-to-end anonymous and secure</span>
           </div>
         </div>
 
