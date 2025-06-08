@@ -23,6 +23,9 @@ export default function ReportsPage() {
   const [cooldowns, setCooldowns] = useState({});
   const [submitting, setSubmitting] = useState({}); // Prevent multiple clicks
 
+  // State to track expanded confessions
+  const [expanded, setExpanded] = useState({});
+
   // Use localStorage to track user reports (max 2 per confession)
   useEffect(() => {
     const stored = localStorage.getItem("confessionReports") || "{}";
@@ -141,10 +144,14 @@ export default function ReportsPage() {
       .includes(searchTerm.trim().toLowerCase())
   );
 
-  // Add this helper function above your return statement
-  function truncateText(text, maxLength = 180) {
-    if (!text) return "";
-    return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
+  // Helper function for truncation
+  function isTruncated(text, maxLength = 70) {
+    return text && text.length > maxLength;
+  }
+
+  function getDisplayText(text, id, maxLength = 70) {
+    if (expanded[id] || !isTruncated(text, maxLength)) return text;
+    return text.slice(0, maxLength);
   }
 
   return (
@@ -214,7 +221,25 @@ export default function ReportsPage() {
                     </span>
                   </div>
                   <div className="text-lg font-semibold whitespace-pre-wrap break-words mb-4 text-white text-center">
-                    {truncateText(confession.message)}
+                    {getDisplayText(confession.message, confession.id)}
+                    {isTruncated(confession.message) && (
+                      <button
+                        onClick={() =>
+                          setExpanded((prev) => ({
+                            ...prev,
+                            [confession.id]: !prev[confession.id],
+                          }))
+                        }
+                        className="ml-2 text-gray-400 underline text-base font-medium hover:text-gray-200 transition"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                        }}
+                      >
+                        {expanded[confession.id] ? "Read less" : "Read more"}
+                      </button>
+                    )}
                   </div>
                   {reportCounts[confession.id] >= 2 ? (
                     <div className="text-gray-400 text-base mt-2 font-medium flex items-center gap-2 justify-center">

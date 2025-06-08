@@ -87,6 +87,8 @@ export default function AdminPage() {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterDropdownRef = useRef(null); // Add this ref
   const [forceFullConfession, setForceFullConfession] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const deleteTimeoutRef = useRef(null);
 
   useEffect(() => {
     const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
@@ -118,6 +120,21 @@ export default function AdminPage() {
     );
     setSelectedConfession(null);
     toast.success("Confession deleted");
+  };
+
+  const handleDeleteClick = () => {
+    if (!deleteConfirm) {
+      setDeleteConfirm(true);
+      // Reset after 3 seconds if not confirmed
+      deleteTimeoutRef.current = setTimeout(
+        () => setDeleteConfirm(false),
+        3000
+      );
+    } else {
+      clearTimeout(deleteTimeoutRef.current);
+      handleDelete();
+      setDeleteConfirm(false);
+    }
   };
 
   const handleSaveImage = async () => {
@@ -507,11 +524,17 @@ export default function AdminPage() {
                 Save as Image
               </button>
               <button
-                onClick={handleDelete}
-                className="flex items-center gap-2 bg-black text-white font-medium px-5 py-2.5 rounded-lg hover:bg-gray-800 transition-all border border-gray-600"
+                onClick={handleDeleteClick}
+                className={`flex items-center gap-2 bg-black text-white font-medium px-5 py-2.5 rounded-lg hover:bg-gray-800 transition-all border border-gray-600
+                  ${
+                    deleteConfirm
+                      ? "border-red-500 bg-red-900 text-red-200"
+                      : ""
+                  }
+                `}
               >
                 <Trash2 size={18} />
-                Delete
+                {deleteConfirm ? "Confirm?" : "Delete"}
               </button>
               <button
                 onClick={handleMarkAsShared}
