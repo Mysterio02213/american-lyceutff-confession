@@ -45,7 +45,6 @@ function TruncatedConfession({ text, maxLength = 200 }) {
     </>
   );
 }
-
 function DeviceInfoLine({ info }) {
   if (!info) return null;
   const parts = info.split(" | ");
