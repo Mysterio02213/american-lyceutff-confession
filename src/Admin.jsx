@@ -211,6 +211,24 @@ export default function AdminPage() {
     return () => window.removeEventListener("mousedown", handler);
   }, [showFilterDropdown]);
 
+  // Close sidebar when clicking outside (on mobile)
+  const sidebarRef = useRef(null);
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const handler = (e) => {
+      if (
+        sidebarRef.current &&
+        !sidebarRef.current.contains(e.target) &&
+        // Ignore sidebar toggle button
+        !e.target.closest(".sidebar-toggle-btn")
+      ) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [sidebarOpen]);
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-black text-white">
       <Toaster
@@ -227,13 +245,15 @@ export default function AdminPage() {
 
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden absolute top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg focus:outline-none"
+        className="md:hidden absolute top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg focus:outline-none sidebar-toggle-btn"
+        // ^ Add this class for outside click ignore
       >
         {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
       {/* Sidebar */}
       <aside
+        ref={sidebarRef}
         className={`
         fixed md:static top-0 left-0 h-[calc(100vh-36px)] w-64 md:w-80 bg-gray-900 border-r border-gray-700 p-5 pt-20 md:pt-5 z-40 transform transition-transform duration-300
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}

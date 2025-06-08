@@ -272,11 +272,13 @@ export default function ConfessionPage() {
                     Important Disclaimer
                   </p>
                   <p>
-                    By submitting this confession, I understand that it will not
-                    be deleted under any circumstance once posted. I agree not
-                    to include any abusive language, hate speech, false rumors,
-                    or personally identifiable information. Violating these
-                    guidelines may lead to a permanent ban from this platform.
+                    By submitting this confession, I understand that it cannot
+                    be edited or deleted once posted. I agree not to include any
+                    abusive language, hate speech, false rumors, or personally
+                    identifiable information. Confessions that violate these
+                    guidelines may be reported by users and reviewed for
+                    removal. Repeated violations may lead to a permanent ban
+                    from this platform.
                   </p>
                 </label>
               </div>
