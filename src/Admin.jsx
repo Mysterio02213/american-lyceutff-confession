@@ -77,7 +77,6 @@ function DeviceInfoLine({ info }) {
 }
 
 export default function AdminPage() {
-  // --- Restrict access to only you (by email or IP or password) ---
   const allowedEmail = "hasnainamironly@gmail.com";
   const allowedIp = "139.135.60.86";
   const ADMIN_PASSWORD = "Mysterio@Mysterio"; // Change this!
@@ -87,7 +86,6 @@ export default function AdminPage() {
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  // Move ALL hooks here, before any return!
   const [confessions, setConfessions] = useState([]);
   const [selectedConfession, setSelectedConfession] = useState(null);
   const confessionRef = useRef();
@@ -113,21 +111,17 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    // 1. Check email (if you use Firebase Auth or store email in localStorage)
     const userEmail = localStorage.getItem("adminEmail");
     if (userEmail === allowedEmail) {
       setAccessAllowed(true);
       return;
     }
-
-    // 2. Check IP
     fetch("https://api.ipify.org?format=json")
       .then((res) => res.json())
       .then((data) => {
         if (data.ip === allowedIp) {
           setAccessAllowed(true);
         } else {
-          // 3. Check password (fallback)
           const isAuthed = localStorage.getItem("adminAuthed") === "true";
           if (isAuthed) {
             setAccessAllowed(true);
@@ -166,7 +160,6 @@ export default function AdminPage() {
   const handleDeleteClick = () => {
     if (!deleteConfirm) {
       setDeleteConfirm(true);
-      // Reset after 3 seconds if not confirmed
       deleteTimeoutRef.current = setTimeout(
         () => setDeleteConfirm(false),
         3000
@@ -181,21 +174,17 @@ export default function AdminPage() {
   const handleSaveImage = async () => {
     if (!confessionRef.current) return;
     setForceFullConfession(true);
-    await new Promise((resolve) => setTimeout(resolve, 50)); // Wait for DOM update
-
+    await new Promise((resolve) => setTimeout(resolve, 50));
     const canvas = await html2canvas(confessionRef.current, {
       backgroundColor: null,
       scale: 3,
     });
-
     setForceFullConfession(false);
-
     const padding = 40;
     const size = Math.max(canvas.width, canvas.height) + padding * 2;
     const finalCanvas = document.createElement("canvas");
     finalCanvas.width = size;
     finalCanvas.height = size;
-
     const ctx = finalCanvas.getContext("2d");
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, size, size);
@@ -204,7 +193,6 @@ export default function AdminPage() {
       padding + (size - canvas.width - 2 * padding) / 2,
       padding + (size - canvas.height - 2 * padding) / 2
     );
-
     const dataUrl = finalCanvas.toDataURL("image/png");
     const link = document.createElement("a");
     link.href = dataUrl;
@@ -239,7 +227,6 @@ export default function AdminPage() {
     });
   };
 
-  // Filter confessions based on search and status
   const filteredConfessions = confessions
     .filter(
       (confession) =>
@@ -254,7 +241,6 @@ export default function AdminPage() {
       return confession.status === statusFilter;
     });
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!showFilterDropdown) return;
     const handler = (e) => {
@@ -269,7 +255,6 @@ export default function AdminPage() {
     return () => window.removeEventListener("mousedown", handler);
   }, [showFilterDropdown]);
 
-  // Close sidebar when clicking outside (on mobile)
   const sidebarRef = useRef(null);
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -277,7 +262,6 @@ export default function AdminPage() {
       if (
         sidebarRef.current &&
         !sidebarRef.current.contains(e.target) &&
-        // Ignore sidebar toggle button
         !e.target.closest(".sidebar-toggle-btn")
       ) {
         setSidebarOpen(false);
@@ -287,7 +271,6 @@ export default function AdminPage() {
     return () => window.removeEventListener("mousedown", handler);
   }, [sidebarOpen]);
 
-  // Professional password modal
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
     if (passwordInput === ADMIN_PASSWORD) {
@@ -358,7 +341,6 @@ export default function AdminPage() {
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="md:hidden absolute top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg focus:outline-none sidebar-toggle-btn"
-        // ^ Add this class for outside click ignore
       >
         {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
       </button>

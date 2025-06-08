@@ -197,237 +197,221 @@ export default function ConfessionPage() {
   }, [success, cooldownError, profanityError]);
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-black via-gray-900 to-black text-white overflow-hidden relative font-sans">
-      {/* Particles background */}
-      <div className="absolute inset-0 overflow-hidden z-0">
-        {[...Array(30)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white/5 animate-pulse"
-            style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              width: `${Math.random() * 10 + 2}px`,
-              height: `${Math.random() * 10 + 2}px`,
-              animationDuration: `${Math.random() * 10 + 5}s`,
-            }}
-          />
-        ))}
-      </div>
+    <div className="min-h-screen w-full bg-gradient-to-br from-black via-gray-900 to-black text-white overflow-x-hidden font-sans flex flex-col items-center justify-center">
+      {/* Modern Glassmorphism Card */}
+      <div className="relative w-full max-w-2xl mx-auto mt-10 mb-16">
+        {/* Floating Blobs */}
+        <div className="absolute -top-20 -left-20 w-60 h-60 bg-gradient-to-br from-gray-700 via-gray-900 to-black rounded-full opacity-30 blur-2xl z-0 animate-pulse" />
+        <div className="absolute -bottom-20 -right-20 w-60 h-60 bg-gradient-to-tr from-gray-700 via-gray-900 to-black rounded-full opacity-30 blur-2xl z-0 animate-pulse" />
 
-      {/* Header */}
-      <header className="relative z-10 w-full text-center py-8">
-        <div className="max-w-4xl mx-auto px-4">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-lg mb-2">
-            American Lycetuff Confessions
-          </h1>
-          <p className="text-gray-400 max-w-xl mx-auto">
-            Share your thoughts anonymously and respectfully
-          </p>
-        </div>
-      </header>
+        <div className="relative z-10 rounded-3xl shadow-2xl border border-white/10 bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80 backdrop-blur-2xl overflow-hidden">
+          {/* Header */}
+          <header className="w-full text-center py-10 px-6 bg-gradient-to-br from-black/80 via-gray-900/80 to-gray-800/80 border-b border-white/10">
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent drop-shadow-lg mb-2">
+              American Lycetuff Confessions
+            </h1>
+            <p className="text-gray-400 max-w-xl mx-auto text-lg">
+              Share your thoughts anonymously and respectfully.
+            </p>
+          </header>
 
-      {/* Main content */}
-      <main className="relative z-10 flex flex-col items-center justify-center px-4 pb-16">
-        <div className="w-full max-w-2xl bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80 border border-white/10 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.45)] backdrop-blur-xl overflow-hidden transition-all duration-300 hover:shadow-[0_12px_48px_0_rgba(0,0,0,0.65)]">
-          {/* Form container */}
-          <div className="p-8 md:p-12">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Textarea */}
-              <div className="relative group">
-                <textarea
-                  id="confession"
-                  className="w-full min-h-[180px] p-6 rounded-2xl bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border border-white/10 shadow-md focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-300 resize-none group-hover:border-white/20"
-                  placeholder="Type your anonymous confession..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  required
-                />
-                <div
-                  className={`absolute bottom-4 right-6 text-xs font-mono px-2 py-1 rounded bg-gray-900/50 border border-white/10 shadow-sm ${
-                    MAX_CHARS - charCount <= MAX_CHARS * 0.1
-                      ? "text-amber-300 border-amber-300/30"
-                      : "text-gray-300"
-                  }`}
-                >
-                  {MAX_CHARS - charCount}
-                </div>
-              </div>
-
-              {/* Agreement checkbox */}
-              <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-2xl border border-white/10 shadow group transition-all duration-300 hover:border-white/30 hover:shadow-lg">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  required
-                  className="accent-white scale-125 mt-1 transition-all duration-200"
-                />
-                <label
-                  htmlFor="terms"
-                  className="text-gray-300 text-sm cursor-pointer"
-                >
-                  <p className="font-semibold text-white mb-1 tracking-wide">
-                    Important Disclaimer
-                  </p>
-                  <p>
-                    By submitting this confession, I understand that it cannot
-                    be edited or deleted once posted. I agree not to include any
-                    abusive language, hate speech, false rumors, or personally
-                    identifiable information. Confessions that violate these
-                    guidelines may be reported by users and reviewed for
-                    removal. Repeated violations may lead to a permanent ban
-                    from this platform.
-                  </p>
-                </label>
-              </div>
-
-              {/* Submit button */}
-              <button
-                type="submit"
-                disabled={loading || !agreed}
-                className={`w-full py-4 rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:scale-105 hover:shadow-2xl hover:border-white/30 hover:bg-gradient-to-br hover:from-gray-800 hover:via-gray-900 hover:to-black active:scale-95 ${
-                  loading || !agreed ? "opacity-60 cursor-not-allowed" : ""
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-8">
+            {/* Textarea */}
+            <div className="relative group">
+              <textarea
+                id="confession"
+                className="w-full min-h-[180px] p-6 rounded-2xl bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border border-white/10 shadow-md focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-300 resize-none group-hover:border-white/20 text-lg"
+                placeholder="Type your anonymous confession..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                required
+                maxLength={MAX_CHARS}
+              />
+              <div
+                className={`absolute bottom-4 right-6 text-xs font-mono px-2 py-1 rounded bg-gray-900/70 border border-white/10 shadow-sm ${
+                  MAX_CHARS - charCount <= MAX_CHARS * 0.1
+                    ? "text-amber-300 border-amber-300/30"
+                    : "text-gray-300"
                 }`}
               >
-                {loading ? (
-                  <>
-                    <svg
-                      className="animate-spin h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <FaPaperPlane className="text-white drop-shadow" />
-                    <span className="drop-shadow">Send Anonymously</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* Feedback messages */}
-            <div className="mt-6 space-y-3">
-              {success === true && (
-                <div
-                  className={`p-4 rounded-xl bg-white/10 border border-white/30 transition-opacity duration-500 ${
-                    showFeedback ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <p className="text-white flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
-                    Message sent anonymously!
-                  </p>
-                </div>
-              )}
-              {success === false && (
-                <div
-                  className={`p-4 rounded-xl bg-white/10 border border-white/30 transition-opacity duration-500 ${
-                    showFeedback ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <p className="text-white flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
-                    Failed to send message. Please try again.
-                  </p>
-                </div>
-              )}
-              {cooldownError && (
-                <div
-                  className={`p-4 rounded-xl bg-white/10 border border-white/30 transition-opacity duration-500 ${
-                    showFeedback ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <p className="text-white flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      ></path>
-                    </svg>
-                    Please wait 1 minute before sending another confession
-                  </p>
-                </div>
-              )}
-              {profanityError && (
-                <div
-                  className={`p-4 rounded-xl bg-white/10 border border-white/30 transition-opacity duration-500 ${
-                    showFeedback ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  <p className="text-white flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      ></path>
-                    </svg>
-                    Your confession contains inappropriate language. Please
-                    remove it.
-                  </p>
-                </div>
-              )}
+                {MAX_CHARS - charCount}
+              </div>
             </div>
+
+            {/* Agreement checkbox */}
+            <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-2xl border border-white/10 shadow group transition-all duration-300 hover:border-white/30 hover:shadow-lg">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                required
+                className="accent-white scale-125 mt-1 transition-all duration-200"
+              />
+              <label
+                htmlFor="terms"
+                className="text-gray-300 text-sm cursor-pointer"
+              >
+                <p className="font-semibold text-white mb-1 tracking-wide">
+                  Important Disclaimer
+                </p>
+                <p>
+                  By submitting this confession, I understand that it cannot be
+                  edited or deleted once posted. I agree not to include any
+                  abusive language, hate speech, false rumors, or personally
+                  identifiable information. Confessions that violate these
+                  guidelines may be reported by users and reviewed for removal.
+                  Repeated violations may lead to a permanent ban from this
+                  platform.
+                </p>
+              </label>
+            </div>
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={loading || !agreed}
+              className={`w-full py-4 rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:scale-105 hover:shadow-2xl hover:border-white/30 hover:bg-gradient-to-br hover:from-gray-800 hover:via-gray-900 hover:to-black active:scale-95 ${
+                loading || !agreed ? "opacity-60 cursor-not-allowed" : ""
+              }`}
+            >
+              {loading ? (
+                <>
+                  <svg
+                    className="animate-spin h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <FaPaperPlane className="text-white drop-shadow" />
+                  <span className="drop-shadow">Send Anonymously</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Feedback messages */}
+          <div className="px-8 md:px-12 pb-8 space-y-3">
+            {success === true && (
+              <div
+                className={`p-4 rounded-xl bg-gradient-to-r from-green-700/20 via-green-900/30 to-black/10 border border-green-400/30 transition-opacity duration-500 ${
+                  showFeedback ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <p className="text-green-200 flex items-center gap-2 font-semibold">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    ></path>
+                  </svg>
+                  Message sent anonymously!
+                </p>
+              </div>
+            )}
+            {success === false && (
+              <div
+                className={`p-4 rounded-xl bg-gradient-to-r from-red-700/20 via-red-900/30 to-black/10 border border-red-400/30 transition-opacity duration-500 ${
+                  showFeedback ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <p className="text-red-200 flex items-center gap-2 font-semibold">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    ></path>
+                  </svg>
+                  Failed to send message. Please try again.
+                </p>
+              </div>
+            )}
+            {cooldownError && (
+              <div
+                className={`p-4 rounded-xl bg-gradient-to-r from-yellow-700/20 via-yellow-900/30 to-black/10 border border-yellow-400/30 transition-opacity duration-500 ${
+                  showFeedback ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <p className="text-yellow-200 flex items-center gap-2 font-semibold">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    ></path>
+                  </svg>
+                  Please wait 1 minute before sending another confession
+                </p>
+              </div>
+            )}
+            {profanityError && (
+              <div
+                className={`p-4 rounded-xl bg-gradient-to-r from-red-700/20 via-red-900/30 to-black/10 border border-red-400/30 transition-opacity duration-500 ${
+                  showFeedback ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <p className="text-red-200 flex items-center gap-2 font-semibold">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    ></path>
+                  </svg>
+                  Your confession contains inappropriate language. Please remove
+                  it.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Security footer */}
@@ -436,48 +420,48 @@ export default function ConfessionPage() {
             <span>Your confession is end-to-end anonymous and secure</span>
           </div>
         </div>
+      </div>
 
-        {/* Instagram links */}
-        <div className="mt-12 flex flex-col md:flex-row justify-center gap-8 text-gray-300">
-          <a
-            href="https://www.instagram.com/americanlycetuff_confession/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group"
-          >
-            <div className="bg-black border border-white/20 p-3 rounded-xl shadow group-hover:border-white/40 transition">
-              <FaInstagram className="text-white text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 group-hover:text-white transition">
-                Confession Page
-              </p>
-              <p className="font-medium text-white group-hover:text-gray-200 transition">
-                americanlycetuff_confession
-              </p>
-            </div>
-          </a>
+      {/* Instagram links */}
+      <div className="mt-12 mb-6 flex flex-col md:flex-row justify-center gap-8 text-gray-300 z-10">
+        <a
+          href="https://www.instagram.com/americanlycetuff_confession/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group"
+        >
+          <div className="bg-black border border-white/20 p-3 rounded-xl shadow group-hover:border-white/40 transition">
+            <FaInstagram className="text-white text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 group-hover:text-white transition">
+              Confession Page
+            </p>
+            <p className="font-medium text-white group-hover:text-gray-200 transition">
+              americanlycetuff_confession
+            </p>
+          </div>
+        </a>
 
-          <a
-            href="https://www.instagram.com/mysterio_notfound/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group"
-          >
-            <div className="bg-black border border-white/20 p-3 rounded-xl shadow group-hover:border-white/40 transition">
-              <FaInstagram className="text-white text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 group-hover:text-white transition">
-                Founder
-              </p>
-              <p className="font-medium text-white group-hover:text-gray-200 transition">
-                mysterio_notfound
-              </p>
-            </div>
-          </a>
-        </div>
-      </main>
+        <a
+          href="https://www.instagram.com/mysterio_notfound/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group"
+        >
+          <div className="bg-black border border-white/20 p-3 rounded-xl shadow group-hover:border-white/40 transition">
+            <FaInstagram className="text-white text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 group-hover:text-white transition">
+              Founder
+            </p>
+            <p className="font-medium text-white group-hover:text-gray-200 transition">
+              mysterio_notfound
+            </p>
+          </div>
+        </a>
+      </div>
 
       {/* Footer */}
       <footer className="relative z-10 w-full text-center py-6 text-gray-500 text-sm border-t border-white/5 mt-auto">
