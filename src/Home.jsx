@@ -199,29 +199,32 @@ export default function ConfessionPage() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-black via-gray-900 to-black text-white overflow-x-hidden font-sans flex flex-col items-center justify-center">
       {/* Modern Glassmorphism Card */}
-      <div className="relative w-full max-w-2xl mx-auto mt-10 mb-16">
+      <div className="relative w-full max-w-2xl mx-auto mt-6 mb-10 px-2 sm:px-4">
         {/* Floating Blobs */}
-        <div className="absolute -top-20 -left-20 w-60 h-60 bg-gradient-to-br from-gray-700 via-gray-900 to-black rounded-full opacity-30 blur-2xl z-0 animate-pulse" />
-        <div className="absolute -bottom-20 -right-20 w-60 h-60 bg-gradient-to-tr from-gray-700 via-gray-900 to-black rounded-full opacity-30 blur-2xl z-0 animate-pulse" />
+        <div className="absolute -top-20 -left-20 w-40 h-40 sm:w-60 sm:h-60 bg-gradient-to-br from-gray-700 via-gray-900 to-black rounded-full opacity-30 blur-2xl z-0 animate-pulse" />
+        <div className="absolute -bottom-20 -right-20 w-40 h-40 sm:w-60 sm:h-60 bg-gradient-to-tr from-gray-700 via-gray-900 to-black rounded-full opacity-30 blur-2xl z-0 animate-pulse" />
 
-        <div className="relative z-10 rounded-3xl shadow-2xl border border-white/10 bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80 backdrop-blur-2xl overflow-hidden">
+        <div className="relative z-10 rounded-2xl sm:rounded-3xl shadow-2xl border border-white/10 bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80 backdrop-blur-2xl overflow-hidden">
           {/* Header */}
-          <header className="w-full text-center py-10 px-6 bg-gradient-to-br from-black/80 via-gray-900/80 to-gray-800/80 border-b border-white/10">
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent drop-shadow-lg mb-2">
+          <header className="w-full text-center py-7 px-3 sm:py-10 sm:px-6 bg-gradient-to-br from-black/80 via-gray-900/80 to-gray-800/80 border-b border-white/10">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent drop-shadow-lg mb-2">
               American Lycetuff Confessions
             </h1>
-            <p className="text-gray-400 max-w-xl mx-auto text-lg">
+            <p className="text-gray-400 max-w-xl mx-auto text-base sm:text-lg">
               Share your thoughts anonymously and respectfully.
             </p>
           </header>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-8">
+          <form
+            onSubmit={handleSubmit}
+            className="p-4 sm:p-8 md:p-12 space-y-6 sm:space-y-8"
+          >
             {/* Textarea */}
             <div className="relative group">
               <textarea
                 id="confession"
-                className="w-full min-h-[180px] p-6 rounded-2xl bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border border-white/10 shadow-md focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-300 resize-none group-hover:border-white/20 text-lg"
+                className="w-full min-h-[120px] sm:min-h-[180px] p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border border-white/10 shadow-md focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-300 resize-none group-hover:border-white/20 text-base sm:text-lg"
                 placeholder="Type your anonymous confession..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -229,7 +232,7 @@ export default function ConfessionPage() {
                 maxLength={MAX_CHARS}
               />
               <div
-                className={`absolute bottom-4 right-6 text-xs font-mono px-2 py-1 rounded bg-gray-900/70 border border-white/10 shadow-sm ${
+                className={`absolute bottom-3 right-4 sm:bottom-4 sm:right-6 text-xs font-mono px-2 py-1 rounded bg-gray-900/70 border border-white/10 shadow-sm ${
                   MAX_CHARS - charCount <= MAX_CHARS * 0.1
                     ? "text-amber-300 border-amber-300/30"
                     : "text-gray-300"
@@ -240,18 +243,18 @@ export default function ConfessionPage() {
             </div>
 
             {/* Agreement checkbox */}
-            <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-2xl border border-white/10 shadow group transition-all duration-300 hover:border-white/30 hover:shadow-lg">
+            <div className="flex items-start gap-3 sm:gap-4 p-3 sm:p-5 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-xl sm:rounded-2xl border border-white/10 shadow group transition-all duration-300 hover:border-white/30 hover:shadow-lg">
               <input
                 type="checkbox"
                 id="terms"
                 checked={agreed}
                 onChange={(e) => setAgreed(e.target.checked)}
                 required
-                className="accent-white scale-125 mt-1 transition-all duration-200"
+                className="accent-white scale-110 sm:scale-125 mt-1 transition-all duration-200"
               />
               <label
                 htmlFor="terms"
-                className="text-gray-300 text-sm cursor-pointer"
+                className="text-gray-300 text-xs sm:text-sm cursor-pointer"
               >
                 <p className="font-semibold text-white mb-1 tracking-wide">
                   Important Disclaimer
@@ -272,7 +275,7 @@ export default function ConfessionPage() {
             <button
               type="submit"
               disabled={loading || !agreed}
-              className={`w-full py-4 rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:scale-105 hover:shadow-2xl hover:border-white/30 hover:bg-gradient-to-br hover:from-gray-800 hover:via-gray-900 hover:to-black active:scale-95 ${
+              className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:scale-105 hover:shadow-2xl hover:border-white/30 hover:bg-gradient-to-br hover:from-gray-800 hover:via-gray-900 hover:to-black active:scale-95 ${
                 loading || !agreed ? "opacity-60 cursor-not-allowed" : ""
               }`}
             >
@@ -310,16 +313,16 @@ export default function ConfessionPage() {
           </form>
 
           {/* Feedback messages */}
-          <div className="px-8 md:px-12 pb-8 space-y-3">
+          <div className="px-4 sm:px-8 md:px-12 pb-6 sm:pb-8 space-y-2 sm:space-y-3">
             {success === true && (
               <div
-                className={`p-4 rounded-xl bg-gradient-to-r from-green-700/20 via-green-900/30 to-black/10 border border-green-400/30 transition-opacity duration-500 ${
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-green-700/20 via-green-900/30 to-black/10 border border-green-400/30 transition-opacity duration-500 ${
                   showFeedback ? "opacity-100" : "opacity-0"
                 }`}
               >
-                <p className="text-green-200 flex items-center gap-2 font-semibold">
+                <p className="text-green-200 flex items-center gap-2 font-semibold text-xs sm:text-base">
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4 sm:w-5 sm:h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -338,13 +341,13 @@ export default function ConfessionPage() {
             )}
             {success === false && (
               <div
-                className={`p-4 rounded-xl bg-gradient-to-r from-red-700/20 via-red-900/30 to-black/10 border border-red-400/30 transition-opacity duration-500 ${
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-red-700/20 via-red-900/30 to-black/10 border border-red-400/30 transition-opacity duration-500 ${
                   showFeedback ? "opacity-100" : "opacity-0"
                 }`}
               >
-                <p className="text-red-200 flex items-center gap-2 font-semibold">
+                <p className="text-red-200 flex items-center gap-2 font-semibold text-xs sm:text-base">
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4 sm:w-5 sm:h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -363,13 +366,13 @@ export default function ConfessionPage() {
             )}
             {cooldownError && (
               <div
-                className={`p-4 rounded-xl bg-gradient-to-r from-yellow-700/20 via-yellow-900/30 to-black/10 border border-yellow-400/30 transition-opacity duration-500 ${
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-yellow-700/20 via-yellow-900/30 to-black/10 border border-yellow-400/30 transition-opacity duration-500 ${
                   showFeedback ? "opacity-100" : "opacity-0"
                 }`}
               >
-                <p className="text-yellow-200 flex items-center gap-2 font-semibold">
+                <p className="text-yellow-200 flex items-center gap-2 font-semibold text-xs sm:text-base">
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4 sm:w-5 sm:h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -388,13 +391,13 @@ export default function ConfessionPage() {
             )}
             {profanityError && (
               <div
-                className={`p-4 rounded-xl bg-gradient-to-r from-red-700/20 via-red-900/30 to-black/10 border border-red-400/30 transition-opacity duration-500 ${
+                className={`p-3 sm:p-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-red-700/20 via-red-900/30 to-black/10 border border-red-400/30 transition-opacity duration-500 ${
                   showFeedback ? "opacity-100" : "opacity-0"
                 }`}
               >
-                <p className="text-red-200 flex items-center gap-2 font-semibold">
+                <p className="text-red-200 flex items-center gap-2 font-semibold text-xs sm:text-base">
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4 sm:w-5 sm:h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -415,7 +418,7 @@ export default function ConfessionPage() {
           </div>
 
           {/* Security footer */}
-          <div className="p-4 bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-t border-white/10 flex items-center justify-center gap-2 text-gray-300 text-sm shadow-inner">
+          <div className="p-3 sm:p-4 bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-t border-white/10 flex items-center justify-center gap-2 text-gray-300 text-xs sm:text-sm shadow-inner">
             <FaLock className="text-white" />
             <span>Your confession is end-to-end anonymous and secure</span>
           </div>
@@ -423,49 +426,53 @@ export default function ConfessionPage() {
       </div>
 
       {/* Instagram links */}
-      <div className="mt-12 mb-6 flex flex-col md:flex-row justify-center gap-8 text-gray-300 z-10">
-        <a
-          href="https://www.instagram.com/americanlycetuff_confession/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group"
-        >
-          <div className="bg-black border border-white/20 p-3 rounded-xl shadow group-hover:border-white/40 transition">
-            <FaInstagram className="text-white text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 group-hover:text-white transition">
-              Confession Page
-            </p>
-            <p className="font-medium text-white group-hover:text-gray-200 transition">
-              americanlycetuff_confession
-            </p>
-          </div>
-        </a>
+      <div className="mt-8 mb-4 flex flex-col md:flex-row justify-center gap-5 sm:gap-8 text-gray-300 z-10 w-full px-2">
+        <div className="flex flex-col md:flex-row justify-center items-center gap-5 sm:gap-8 w-full">
+          <a
+            href="https://www.instagram.com/americanlycetuff_confession/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group w-full max-w-xs min-w-[260px] justify-center"
+            style={{ minWidth: 260 }}
+          >
+            <div className="bg-black border border-white/20 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow group-hover:border-white/40 transition">
+              <FaInstagram className="text-white text-xl sm:text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <p className="text-xs text-gray-500 group-hover:text-white transition whitespace-nowrap">
+                Confession Page
+              </p>
+              <p className="font-medium text-white group-hover:text-gray-200 transition whitespace-nowrap">
+                americanlycetuff_confession
+              </p>
+            </div>
+          </a>
 
-        <a
-          href="https://www.instagram.com/mysterio_notfound/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group"
-        >
-          <div className="bg-black border border-white/20 p-3 rounded-xl shadow group-hover:border-white/40 transition">
-            <FaInstagram className="text-white text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 group-hover:text-white transition">
-              Founder
-            </p>
-            <p className="font-medium text-white group-hover:text-gray-200 transition">
-              mysterio_notfound
-            </p>
-          </div>
-        </a>
+          <a
+            href="https://www.instagram.com/mysterio_notfound/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border border-white/10 shadow-lg hover:scale-105 hover:shadow-2xl hover:border-white/30 transition-all duration-300 group w-full max-w-xs min-w-[260px] justify-center"
+            style={{ minWidth: 260 }}
+          >
+            <div className="bg-black border border-white/20 p-2 sm:p-3 rounded-lg sm:rounded-xl shadow group-hover:border-white/40 transition">
+              <FaInstagram className="text-white text-xl sm:text-2xl group-hover:scale-110 group-hover:text-gray-200 transition" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <p className="text-xs text-gray-500 group-hover:text-white transition whitespace-nowrap">
+                Founder
+              </p>
+              <p className="font-medium text-white group-hover:text-gray-200 transition whitespace-nowrap">
+                mysterio_notfound
+              </p>
+            </div>
+          </a>
+        </div>
       </div>
 
       {/* Footer */}
-      <footer className="relative z-10 w-full text-center py-6 text-gray-500 text-sm border-t border-white/5 mt-auto">
-        <div className="max-w-4xl mx-auto px-4">
+      <footer className="relative z-10 w-full text-center py-4 sm:py-6 text-gray-500 text-xs sm:text-sm border-t border-white/5 mt-auto px-2">
+        <div className="max-w-4xl mx-auto">
           <p>
             © {new Date().getFullYear()} American Lycetuff Confessions.
             Everything Is Anonymous.
