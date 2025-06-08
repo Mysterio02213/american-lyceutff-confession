@@ -196,100 +196,105 @@ export default function ReportsPage() {
               No confessions found.
             </div>
           ) : (
-            filteredConfessions.map((confession) => (
-              <div
-                key={confession.id}
-                className="bg-gradient-to-br from-black via-gray-900 to-gray-800 border border-gray-700 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-shadow duration-200"
-              >
-                <div className="flex items-center mb-4">
-                  <span className="mx-auto text-4xl font-extrabold text-gray-200 flex items-center gap-3">
-                    <Flag size={32} className="text-gray-500" />
-                    {confession.reports || 0}
-                    <span className="text-lg font-medium text-gray-400">
-                      reports
-                    </span>
-                  </span>
-                </div>
-                <div className="text-lg font-semibold whitespace-pre-wrap break-words mb-4 text-white text-center">
-                  {truncateText(confession.message)}
-                </div>
-                {reportCounts[confession.id] >= 2 ? (
-                  <div className="text-gray-400 text-base mt-2 font-medium flex items-center gap-2 justify-center">
-                    <Check size={18} /> You have reached the report limit for
-                    this confession.
-                  </div>
-                ) : reportingId === confession.id ? (
-                  <div className="mt-2 flex flex-col gap-2">
-                    <textarea
-                      className="w-full p-3 rounded-lg bg-black border border-gray-700 text-white focus:ring-2 focus:ring-gray-500 transition"
-                      rows={3}
-                      placeholder="Please enter your reason for reporting..."
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      maxLength={300}
-                    />
-                    <div className="flex justify-end text-xs mt-1 text-gray-400">
-                      <span
-                        className={
-                          reason.length >= 300
-                            ? "text-red-400 font-semibold"
-                            : ""
-                        }
-                      >
-                        {300 - reason.length}
+            filteredConfessions
+              .slice() // make a copy to avoid mutating state
+              .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) // newest first
+              .map((confession) => (
+                <div
+                  key={confession.id}
+                  className="bg-gradient-to-br from-black via-gray-900 to-gray-800 border border-gray-700 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-shadow duration-200"
+                >
+                  <div className="flex items-center mb-4">
+                    <span className="mx-auto text-4xl font-extrabold text-gray-200 flex items-center gap-3">
+                      <Flag size={32} className="text-gray-500" />
+                      {confession.reports || 0}
+                      <span className="text-lg font-medium text-gray-400">
+                        reports
                       </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleReport(confession.id)}
-                        disabled={
-                          cooldowns[confession.id] || submitting[confession.id]
-                        }
-                        className={`flex-1 bg-white text-black border border-gray-700 px-4 py-2 rounded-lg font-bold transition shadow-sm hover:bg-gray-100 hover:text-black ${
-                          cooldowns[confession.id] || submitting[confession.id]
-                            ? "opacity-60 cursor-not-allowed"
-                            : ""
-                        }`}
-                      >
-                        {cooldowns[confession.id] || submitting[confession.id]
-                          ? "Please wait..."
-                          : "Submit Report"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setReportingId(null);
-                          setReason("");
-                        }}
-                        className="flex-1 bg-black text-white border border-gray-700 px-4 py-2 rounded-lg font-bold transition shadow-sm hover:bg-gray-900"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    </span>
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setReportingId(confession.id)}
-                    disabled={
-                      reportCounts[confession.id] >= 2 ||
-                      cooldowns[confession.id] ||
-                      submitting[confession.id]
-                    }
-                    className={`w-full bg-white text-black border border-gray-700 px-4 py-2 rounded-lg mt-2 font-bold flex items-center justify-center gap-2 transition shadow-sm hover:bg-gray-100 hover:text-black ${
-                      reportCounts[confession.id] >= 2 ||
-                      cooldowns[confession.id] ||
-                      submitting[confession.id]
-                        ? "opacity-60 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    <Flag size={18} className="text-black" />
-                    {cooldowns[confession.id]
-                      ? "Please wait a moment before reporting again..."
-                      : "Report this confession"}
-                  </button>
-                )}
-              </div>
-            ))
+                  <div className="text-lg font-semibold whitespace-pre-wrap break-words mb-4 text-white text-center">
+                    {truncateText(confession.message)}
+                  </div>
+                  {reportCounts[confession.id] >= 2 ? (
+                    <div className="text-gray-400 text-base mt-2 font-medium flex items-center gap-2 justify-center">
+                      <Check size={18} /> You have reached the report limit for
+                      this confession.
+                    </div>
+                  ) : reportingId === confession.id ? (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <textarea
+                        className="w-full p-3 rounded-lg bg-black border border-gray-700 text-white focus:ring-2 focus:ring-gray-500 transition"
+                        rows={3}
+                        placeholder="Please enter your reason for reporting..."
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        maxLength={300}
+                      />
+                      <div className="flex justify-end text-xs mt-1 text-gray-400">
+                        <span
+                          className={
+                            reason.length >= 300
+                              ? "text-red-400 font-semibold"
+                              : ""
+                          }
+                        >
+                          {300 - reason.length}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleReport(confession.id)}
+                          disabled={
+                            cooldowns[confession.id] ||
+                            submitting[confession.id]
+                          }
+                          className={`flex-1 bg-white text-black border border-gray-700 px-4 py-2 rounded-lg font-bold transition shadow-sm hover:bg-gray-100 hover:text-black ${
+                            cooldowns[confession.id] ||
+                            submitting[confession.id]
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
+                          {cooldowns[confession.id] || submitting[confession.id]
+                            ? "Please wait..."
+                            : "Submit Report"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setReportingId(null);
+                            setReason("");
+                          }}
+                          className="flex-1 bg-black text-white border border-gray-700 px-4 py-2 rounded-lg font-bold transition shadow-sm hover:bg-gray-900"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setReportingId(confession.id)}
+                      disabled={
+                        reportCounts[confession.id] >= 2 ||
+                        cooldowns[confession.id] ||
+                        submitting[confession.id]
+                      }
+                      className={`w-full bg-white text-black border border-gray-700 px-4 py-2 rounded-lg mt-2 font-bold flex items-center justify-center gap-2 transition shadow-sm hover:bg-gray-100 hover:text-black ${
+                        reportCounts[confession.id] >= 2 ||
+                        cooldowns[confession.id] ||
+                        submitting[confession.id]
+                          ? "opacity-60 cursor-not-allowed"
+                          : ""
+                      }`}
+                    >
+                      <Flag size={18} className="text-black" />
+                      {cooldowns[confession.id]
+                        ? "Please wait a moment before reporting again..."
+                        : "Report this confession"}
+                    </button>
+                  )}
+                </div>
+              ))
           )}
         </div>
       </div>

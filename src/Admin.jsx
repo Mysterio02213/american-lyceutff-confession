@@ -20,7 +20,61 @@ import {
   X,
   Menu,
   Check,
+  Smartphone,
+  Monitor,
+  Globe,
+  Info,
 } from "lucide-react";
+
+function TruncatedConfession({ text, maxLength = 200 }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return null;
+  if (text.length <= maxLength || expanded) {
+    return <span>{text}</span>;
+  }
+  return (
+    <>
+      {text.slice(0, maxLength)}...
+      <button
+        className="ml-2 text-blue-400 underline text-xs"
+        onClick={() => setExpanded(true)}
+        type="button"
+      >
+        Read more
+      </button>
+    </>
+  );
+}
+
+function DeviceInfoLine({ info }) {
+  if (!info) return null;
+  const parts = info.split(" | ");
+  const icons = {
+    OS: <Monitor className="inline w-3 h-3 mr-0.5" />,
+    Browser: <Globe className="inline w-3 h-3 mr-0.5" />,
+    "Device Type": <Smartphone className="inline w-3 h-3 mr-0.5" />,
+    "Device Brand": <Info className="inline w-3 h-3 mr-0.5" />,
+    "Device Model": <Info className="inline w-3 h-3 mr-0.5" />,
+  };
+  return (
+    <div className="flex flex-col items-start gap-0.5 text-[10px] text-gray-400 w-full break-words">
+      {parts.map((part, idx) => {
+        const [label, ...rest] = part.split(":");
+        const value = rest.join(":").trim();
+        return (
+          <span
+            key={idx}
+            className="flex items-center gap-0.5 w-full break-words"
+          >
+            {icons[label.trim()] || <Info className="inline w-3 h-3 mr-0.5" />}
+            <span className="font-semibold">{label.trim()}:</span>
+            <span className="break-words">{value}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [confessions, setConfessions] = useState([]);
@@ -32,6 +86,7 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState("all"); // NEW
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterDropdownRef = useRef(null); // Add this ref
+  const [forceFullConfession, setForceFullConfession] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
@@ -67,11 +122,15 @@ export default function AdminPage() {
 
   const handleSaveImage = async () => {
     if (!confessionRef.current) return;
+    setForceFullConfession(true);
+    await new Promise((resolve) => setTimeout(resolve, 50)); // Wait for DOM update
 
     const canvas = await html2canvas(confessionRef.current, {
       backgroundColor: null,
       scale: 3,
     });
+
+    setForceFullConfession(false);
 
     const padding = 40;
     const size = Math.max(canvas.width, canvas.height) + padding * 2;
@@ -131,6 +190,9 @@ export default function AdminPage() {
     )
     .filter((confession) => {
       if (statusFilter === "all") return true;
+      if (statusFilter === "reported") {
+        return confession.reported && confession.reports > 0;
+      }
       return confession.status === statusFilter;
     });
 
@@ -207,6 +269,7 @@ export default function AdminPage() {
                   <option value="not-opened">Not Opened</option>
                   <option value="opened">Opened</option>
                   <option value="shared">Shared</option>
+                  <option value="reported">Reported</option>
                 </select>
               </div>
             )}
@@ -376,11 +439,11 @@ export default function AdminPage() {
             {/* Confession Box */}
             <div
               ref={confessionRef}
-              className="rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden backdrop-blur"
+              className="relative rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden backdrop-blur"
               style={{
                 width: "min(90vw, 500px)",
                 boxSizing: "border-box",
-                background: "linear-gradient(145deg, #1f1f1f, #2c2c2c)", // black-gray gradient
+                background: "linear-gradient(145deg, #1f1f1f, #2c2c2c)",
               }}
             >
               {/* Header */}
@@ -389,9 +452,22 @@ export default function AdminPage() {
               </div>
 
               {/* Message */}
-              <div className="p-6 text-white text-center font-bold whitespace-pre-wrap break-words bg-gradient-to-br from-black via-gray-900 to-gray-800">
+              <div
+                className={`p-6 text-white text-center font-bold whitespace-pre-wrap break-words bg-gradient-to-br from-black via-gray-900 to-gray-800 ${
+                  forceFullConfession
+                    ? ""
+                    : "max-h-[60vh] sm:max-h-[400px] overflow-y-auto"
+                }`}
+              >
                 <p className="text-lg leading-relaxed text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.25)]">
-                  {selectedConfession.message}
+                  {forceFullConfession ? (
+                    selectedConfession.message
+                  ) : (
+                    <TruncatedConfession
+                      text={selectedConfession.message}
+                      maxLength={200}
+                    />
+                  )}
                 </p>
               </div>
 
@@ -446,6 +522,56 @@ export default function AdminPage() {
             </p>
           </div>
         )}
+        {selectedConfession &&
+          (selectedConfession.ipAddress || selectedConfession.deviceInfo) && (
+            <div className="absolute top-2 right-3 z-10 p-3 rounded-xl bg-zinc-900/90 shadow-lg flex flex-col gap-2 min-w-[120px] max-w-[220px] text-[11px] text-gray-300">
+              {/* IP Address */}
+              {selectedConfession.ipAddress && (
+                <div
+                  title="Click to copy IP"
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedConfession.ipAddress);
+                    toast.success("IP address copied!");
+                  }}
+                  className="cursor-pointer hover:text-blue-400 transition flex items-center gap-1"
+                >
+                  <Globe className="w-3 h-3" />
+                  <span className="truncate">
+                    {selectedConfession.ipAddress}
+                  </span>
+                </div>
+              )}
+
+              {/* Device Info */}
+              {selectedConfession.deviceInfo && (
+                <div className="flex flex-col gap-1 text-gray-400 text-[10px]">
+                  {selectedConfession.deviceInfo
+                    .split(" | ")
+                    .map((part, idx) => {
+                      const [label, ...rest] = part.split(":");
+                      const value = rest.join(":").trim();
+                      if (!label || !value) return null;
+
+                      let icon = <Info className="w-3 h-3" />;
+                      if (label.includes("OS"))
+                        icon = <Monitor className="w-3 h-3" />;
+                      else if (label.includes("Browser"))
+                        icon = <Globe className="w-3 h-3" />;
+                      else if (label.includes("Device Type"))
+                        icon = <Smartphone className="w-3 h-3" />;
+
+                      return (
+                        <div key={idx} className="flex items-center gap-1">
+                          {icon}
+                          <span className="font-semibold">{label.trim()}:</span>
+                          <span className="truncate">{value}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          )}
       </main>
 
       {/* Stats Bar */}
@@ -471,7 +597,7 @@ export default function AdminPage() {
       </div>
 
       {/* Custom Styles */}
-      <style jsx>{`
+      <style>{`
         .word-break {
           word-break: break-word;
         }
