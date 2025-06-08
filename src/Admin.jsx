@@ -77,14 +77,25 @@ function DeviceInfoLine({ info }) {
 }
 
 export default function AdminPage() {
+  // --- Restrict access to only you (by email or IP or password) ---
+  const allowedEmail = "hasnainamironly@gmail.com";
+  const allowedIp = "139.135.60.86";
+  const ADMIN_PASSWORD = "Mysterio@Mysterio"; // Change this!
+
+  const [accessAllowed, setAccessAllowed] = useState(null);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  // Move ALL hooks here, before any return!
   const [confessions, setConfessions] = useState([]);
   const [selectedConfession, setSelectedConfession] = useState(null);
   const confessionRef = useRef();
   const [searchTerm, setSearchTerm] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("all"); // NEW
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const filterDropdownRef = useRef(null); // Add this ref
+  const filterDropdownRef = useRef(null);
   const [forceFullConfession, setForceFullConfession] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const deleteTimeoutRef = useRef(null);
@@ -99,6 +110,37 @@ export default function AdminPage() {
       setConfessions(data);
     });
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // 1. Check email (if you use Firebase Auth or store email in localStorage)
+    const userEmail = localStorage.getItem("adminEmail");
+    if (userEmail === allowedEmail) {
+      setAccessAllowed(true);
+      return;
+    }
+
+    // 2. Check IP
+    fetch("https://api.ipify.org?format=json")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ip === allowedIp) {
+          setAccessAllowed(true);
+        } else {
+          // 3. Check password (fallback)
+          const isAuthed = localStorage.getItem("adminAuthed") === "true";
+          if (isAuthed) {
+            setAccessAllowed(true);
+          } else {
+            setShowPasswordPrompt(true);
+            setAccessAllowed(false);
+          }
+        }
+      })
+      .catch(() => {
+        setShowPasswordPrompt(true);
+        setAccessAllowed(false);
+      });
   }, []);
 
   const handleSelect = async (confession) => {
@@ -244,6 +286,60 @@ export default function AdminPage() {
     window.addEventListener("mousedown", handler);
     return () => window.removeEventListener("mousedown", handler);
   }, [sidebarOpen]);
+
+  // Professional password modal
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    if (passwordInput === ADMIN_PASSWORD) {
+      localStorage.setItem("adminAuthed", "true");
+      setAccessAllowed(true);
+      setShowPasswordPrompt(false);
+      setPasswordError("");
+      setPasswordInput("");
+    } else {
+      setPasswordError("Incorrect password. Please try again.");
+      setPasswordInput("");
+    }
+  };
+
+  if (showPasswordPrompt && accessAllowed === false) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
+        <div className="w-full max-w-xs rounded-2xl shadow-2xl border border-gray-800 bg-gradient-to-br from-black via-gray-900 to-gray-800 p-8">
+          <h2 className="text-2xl font-extrabold mb-6 text-center bg-gradient-to-r from-white via-gray-300 to-gray-400 bg-clip-text text-transparent">
+            Admin Login
+          </h2>
+          <form onSubmit={handlePasswordSubmit} className="space-y-5">
+            <div>
+              <label className="block mb-2 text-xs font-semibold text-gray-300 tracking-wide">
+                Enter Admin Password
+              </label>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-black/80 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white focus:border-white transition"
+                autoFocus
+                autoComplete="current-password"
+                placeholder="Password"
+              />
+              {passwordError && (
+                <div className="text-xs mt-2 text-center text-red-400">
+                  {passwordError}
+                </div>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="w-full py-2 rounded-lg font-bold bg-gradient-to-r from-gray-700 via-gray-900 to-black text-white border border-gray-700 hover:from-gray-600 hover:to-gray-900 transition"
+            >
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-black text-white">
