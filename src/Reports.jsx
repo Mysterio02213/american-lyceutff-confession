@@ -11,6 +11,7 @@ import {
 import { db } from "./firebase";
 import { toast, Toaster } from "react-hot-toast";
 import { Check, Flag, Search, X as CloseIcon } from "lucide-react";
+import sendToDiscord from "./sendToDiscord"; // Add this import
 
 export default function ReportsPage() {
   const [confessions, setConfessions] = useState([]);
@@ -70,6 +71,7 @@ export default function ReportsPage() {
       toast.error("Please provide a reason.");
       return;
     }
+    // No word limit check needed, only char limit (handled by maxLength)
     if (cooldowns[confessionId] || submitting[confessionId]) {
       toast.error("Please wait before reporting again.");
       return;
@@ -99,6 +101,13 @@ export default function ReportsPage() {
           reason,
         ],
       });
+
+      // Send report to Discord
+      const confession = confessions.find((c) => c.id === confessionId);
+      await sendToDiscord(
+        `Confession: "${confession?.message || ""}"\nReason: "${reason}"`,
+        "report"
+      );
 
       // Update localStorage
       stored[confessionId] = count + 1;
@@ -131,6 +140,12 @@ export default function ReportsPage() {
       .toLowerCase()
       .includes(searchTerm.trim().toLowerCase())
   );
+
+  // Add this helper function above your return statement
+  function truncateText(text, maxLength = 180) {
+    if (!text) return "";
+    return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
+  }
 
   return (
     <div className="min-h-screen bg-black text-white px-4 py-8">
@@ -196,7 +211,7 @@ export default function ReportsPage() {
                   </span>
                 </div>
                 <div className="text-lg font-semibold whitespace-pre-wrap break-words mb-4 text-white text-center">
-                  {confession.message}
+                  {truncateText(confession.message)}
                 </div>
                 {reportCounts[confession.id] >= 2 ? (
                   <div className="text-gray-400 text-base mt-2 font-medium flex items-center gap-2 justify-center">
@@ -213,6 +228,17 @@ export default function ReportsPage() {
                       onChange={(e) => setReason(e.target.value)}
                       maxLength={300}
                     />
+                    <div className="flex justify-end text-xs mt-1 text-gray-400">
+                      <span
+                        className={
+                          reason.length >= 300
+                            ? "text-red-400 font-semibold"
+                            : ""
+                        }
+                      >
+                        {300 - reason.length}
+                      </span>
+                    </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleReport(confession.id)}
