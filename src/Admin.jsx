@@ -11,7 +11,16 @@ import {
 import { db } from "./firebase";
 import html2canvas from "html2canvas";
 import { Toaster, toast } from "react-hot-toast";
-import { Eye, FileText, Trash2, Download, Filter, X, Menu } from "lucide-react";
+import {
+  Eye,
+  FileText,
+  Trash2,
+  Download,
+  Filter,
+  X,
+  Menu,
+  Check,
+} from "lucide-react";
 
 export default function AdminPage() {
   const [confessions, setConfessions] = useState([]);
@@ -82,6 +91,20 @@ export default function AdminPage() {
     link.download = "confession.png";
     link.click();
     toast.success("Image saved");
+  };
+
+  const handleMarkAsShared = async () => {
+    if (!selectedConfession) return;
+    await updateDoc(doc(db, "messages", selectedConfession.id), {
+      status: "shared",
+    });
+    setConfessions((prev) =>
+      prev.map((c) =>
+        c.id === selectedConfession.id ? { ...c, status: "shared" } : c
+      )
+    );
+    setSelectedConfession({ ...selectedConfession, status: "shared" });
+    toast.success("Marked as shared");
   };
 
   const formatTimestamp = (timestamp) => {
@@ -197,19 +220,30 @@ export default function AdminPage() {
               <div
                 key={confession.id}
                 onClick={() => handleSelect(confession)}
-                className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border
+                className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border relative
             ${
               selectedConfession?.id === confession.id
                 ? "bg-white text-black border-white"
                 : confession.status === "not-opened"
                 ? "bg-gray-800 border-white text-white"
+                : confession.status === "shared"
+                ? "bg-green-900 border-green-400 text-green-200"
                 : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
             }
           `}
               >
+                {/* Reported dot */}
+                {confession.reported && (
+                  <span
+                    className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full"
+                    title="Reported"
+                  ></span>
+                )}
                 <div className="mt-0.5 shrink-0">
                   {confession.status === "not-opened" ? (
                     <Eye className="w-4 h-4" />
+                  ) : confession.status === "shared" ? (
+                    <Check className="w-4 h-4 text-green-300" />
                   ) : (
                     <FileText className="w-4 h-4" />
                   )}
@@ -232,72 +266,75 @@ export default function AdminPage() {
       <main className="flex-1 flex flex-col items-center justify-center p-6 relative">
         {selectedConfession ? (
           <>
-            <div className="absolute top-6 right-6 text-xs text-gray-400 group text-right">
-              <div className="flex flex-col items-end gap-1">
-                {/* IP */}
-                <div
-                  className="flex items-center gap-1 cursor-pointer hover:text-white"
-                  onClick={() => {
-                    if (selectedConfession.ipAddress) {
-                      navigator.clipboard.writeText(
-                        selectedConfession.ipAddress
-                      );
-                      toast.success("IP copied to clipboard!");
-                    }
-                  }}
-                  title="Copy IP"
+            {/* Report Info Tab/Button */}
+            {selectedConfession.reported && (
+              <div className="w-full max-w-md mx-auto mt-4 mb-2">
+                <details
+                  className="bg-red-900/80 border border-red-400 rounded-xl p-0 shadow group"
+                  open={false}
                 >
-                  <span className="bg-gray-800 p-1 rounded group-hover:bg-gray-700">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                  <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none outline-none">
+                    <span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                    <span className="font-bold text-red-200 text-base">
+                      Report Info
+                    </span>
+                    <span className="ml-auto text-xs text-red-200">
+                      {selectedConfession.reports || 1} report
+                      {selectedConfession.reports > 1 ? "s" : ""}
+                    </span>
+                    <span className="ml-2 text-red-300 group-open:rotate-90 transition-transform">
+                      &#9654;
+                    </span>
+                  </summary>
+                  <div className="px-4 pb-4 pt-2 text-sm text-red-100">
+                    <span className="font-semibold">Reasons:</span>
+                    <ul className="list-disc ml-5 mt-1 space-y-1">
+                      {(selectedConfession.reportReasons || []).map(
+                        (reason, idx) => (
+                          <li key={idx} className="break-words">
+                            {reason}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                    <button
+                      onClick={async () => {
+                        await updateDoc(
+                          doc(db, "messages", selectedConfession.id),
+                          {
+                            reported: false,
+                            reports: 0,
+                            reportReasons: [],
+                          }
+                        );
+                        setConfessions((prev) =>
+                          prev.map((c) =>
+                            c.id === selectedConfession.id
+                              ? {
+                                  ...c,
+                                  reported: false,
+                                  reports: 0,
+                                  reportReasons: [],
+                                }
+                              : c
+                          )
+                        );
+                        setSelectedConfession({
+                          ...selectedConfession,
+                          reported: false,
+                          reports: 0,
+                          reportReasons: [],
+                        });
+                        toast.success("Report info cleared");
+                      }}
+                      className="mt-4 bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg font-semibold transition"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                  </span>
-                  <strong>IP:</strong>{" "}
-                  {selectedConfession.ipAddress || "Unknown"}
-                </div>
-
-                {/* Device Info (if exists) */}
-                {selectedConfession.deviceInfo && (
-                  <div className="text-gray-300 text-xs bg-gray-800 p-3 rounded mt-2 w-full max-w-xs shadow-md">
-                    <strong className="block mb-2 text-white text-left">
-                      Device Info:
-                    </strong>
-                    <div className="space-y-1">
-                      {selectedConfession.deviceInfo
-                        .split(" | ")
-                        .map((entry, idx) => {
-                          const [label, value] = entry
-                            .split(":")
-                            .map((s) => s.trim());
-                          return (
-                            <div
-                              key={idx}
-                              className="flex justify-between border-b border-gray-700 pb-1"
-                            >
-                              <span className="text-gray-400">{label}:</span>
-                              <span className="text-white text-right ml-2">
-                                {value || "Unknown"}
-                              </span>
-                            </div>
-                          );
-                        })}
-                    </div>
+                      Clear Report Info
+                    </button>
                   </div>
-                )}
+                </details>
               </div>
-            </div>
-
+            )}
             {/* Confession Box */}
             <div
               ref={confessionRef}
@@ -341,6 +378,22 @@ export default function AdminPage() {
               >
                 <Trash2 size={18} />
                 Delete
+              </button>
+              <button
+                onClick={handleMarkAsShared}
+                disabled={selectedConfession.status === "shared"}
+                className={`flex items-center gap-2 font-medium px-5 py-2.5 rounded-lg transition-all border
+                  ${
+                    selectedConfession.status === "shared"
+                      ? "bg-green-700 text-white border-green-400 cursor-not-allowed opacity-60"
+                      : "bg-green-500 text-white border-green-600 hover:bg-green-600"
+                  }
+                `}
+              >
+                <Check size={18} />
+                {selectedConfession.status === "shared"
+                  ? "Marked as Shared"
+                  : "Mark as Shared"}
               </button>
             </div>
           </>
