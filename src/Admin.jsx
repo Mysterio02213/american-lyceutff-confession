@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   collection,
   onSnapshot,
@@ -79,7 +79,6 @@ function DeviceInfoLine({ info }) {
 export default function AdminPage() {
   const [confessions, setConfessions] = useState([]);
   const [selectedConfession, setSelectedConfession] = useState(null);
-  const [showOnlyNew, setShowOnlyNew] = useState(false);
   const confessionRef = useRef();
   const [searchTerm, setSearchTerm] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
