@@ -17,7 +17,7 @@ export default function ConfessionPage() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [charCount, setCharCount] = useState(0);
   const [deviceInfo, setDeviceInfo] = useState("");
-  const MAX_CHARS = 3000;
+  const MAX_CHARS = 2000;
 
   useEffect(() => {
     setCharCount(message.length);
