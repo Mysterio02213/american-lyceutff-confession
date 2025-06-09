@@ -5,6 +5,7 @@ import sendToDiscord from "./sendToDiscord";
 import { FaInstagram, FaPaperPlane, FaLock } from "react-icons/fa";
 import axios from "axios";
 import { UAParser } from "ua-parser-js";
+import { HexColorPicker } from "react-colorful"; // npm install react-colorful
 
 export default function ConfessionPage() {
   const [message, setMessage] = useState("");
@@ -17,6 +18,8 @@ export default function ConfessionPage() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [charCount, setCharCount] = useState(0);
   const [deviceInfo, setDeviceInfo] = useState("");
+  const [customColorEnabled, setCustomColorEnabled] = useState(false);
+  const [customColor, setCustomColor] = useState("#ffffff");
   const MAX_CHARS = 1200;
 
   useEffect(() => {
@@ -166,13 +169,16 @@ export default function ConfessionPage() {
         createdAt: Timestamp.now(),
         status: "not-opened",
         ipAddress: ip,
-        deviceInfo, // <-- Add this line
+        deviceInfo,
+        customColor: customColorEnabled ? customColor : null, // <-- Save color if enabled
       });
       await sendToDiscord(message);
       localStorage.setItem("lastConfessionTime", now.toString());
       setSuccess(true);
       setMessage("");
       setAgreed(false);
+      setCustomColorEnabled(false);
+      setCustomColor("#ffffff");
     } catch (err) {
       console.error("Error:", err);
       setSuccess(false);
@@ -241,6 +247,70 @@ export default function ConfessionPage() {
                 {MAX_CHARS - charCount}
               </div>
             </div>
+
+            {/* Custom Color Checkbox - above disclaimer */}
+            <div className="flex items-center gap-3 mb-2 p-3 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-xl border border-white/10 shadow transition-all duration-300 hover:border-white/30 hover:shadow-lg">
+              <input
+                type="checkbox"
+                id="customColor"
+                checked={customColorEnabled}
+                onChange={(e) => setCustomColorEnabled(e.target.checked)}
+                className="accent-white scale-110 sm:scale-125 mt-1 transition-all duration-200"
+              />
+              <label
+                htmlFor="customColor"
+                className="text-gray-300 text-xs sm:text-sm cursor-pointer"
+              >
+                <span className="font-semibold text-white mb-1 tracking-wide">
+                  Custom Color
+                </span>
+                <span className="block text-gray-400">
+                  Choose a custom color for your confession (optional)
+                </span>
+              </label>
+            </div>
+
+            {/* Centered and adaptive Color Picker */}
+            {customColorEnabled && (
+              <div className="w-full flex flex-col items-center justify-center my-4">
+                <div
+                  className="rounded-2xl border border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 p-5 shadow-xl flex flex-col items-center"
+                  style={{
+                    width: "100%",
+                    maxWidth: 260,
+                    minWidth: 0,
+                  }}
+                >
+                  <HexColorPicker
+                    color={customColor}
+                    onChange={setCustomColor}
+                    style={{
+                      width: "100%",
+                      maxWidth: 220,
+                      aspectRatio: "1/1",
+                      borderRadius: "1rem",
+                      boxShadow: "0 2px 16px 0 #0006",
+                    }}
+                  />
+                  <div className="mt-4 flex items-center gap-2">
+                    <span
+                      className="inline-block w-7 h-7 rounded-lg border border-white/20 shadow"
+                      style={{ background: customColor }}
+                    />
+                    <input
+                      type="text"
+                      value={customColor}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      className="bg-gray-900 border border-white/10 rounded px-2 py-1 text-xs text-white font-mono w-24 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+                      maxLength={7}
+                    />
+                  </div>
+                  <div className="mt-1 text-xs text-gray-400 text-center w-full">
+                    Selected color
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Agreement checkbox */}
             <div className="flex items-start gap-3 sm:gap-4 p-3 sm:p-5 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-xl sm:rounded-2xl border border-white/10 shadow group transition-all duration-300 hover:border-white/30 hover:shadow-lg">

@@ -560,7 +560,20 @@ export default function AdminPage() {
               }}
             >
               {/* Header */}
-              <div className="py-4 px-6 font-bold text-center text-xl border-b border-gray-700 bg-gradient-to-r from-white to-gray-200 text-black shadow-inner">
+              <div
+                className="py-4 px-6 font-bold text-center text-xl border-b border-gray-700 bg-gradient-to-r from-white to-gray-200 text-black shadow-inner"
+                style={
+                  selectedConfession.customColor
+                    ? {
+                        background: selectedConfession.customColor,
+                        color: "#fff",
+                        borderBottom: "2px solid #fff",
+                        textShadow: "0 1px 8px rgba(0,0,0,0.25)",
+                        transition: "background 0.3s"
+                      }
+                    : {}
+                }
+              >
                 ANONYMOUS CONFESSION
               </div>
 
