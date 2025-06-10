@@ -6,6 +6,7 @@ import { FaInstagram, FaPaperPlane, FaLock } from "react-icons/fa";
 import axios from "axios";
 import { UAParser } from "ua-parser-js";
 import { HexColorPicker } from "react-colorful"; // npm install react-colorful
+import { Filter } from "bad-words";
 
 export default function ConfessionPage() {
   const [message, setMessage] = useState("");
@@ -57,17 +58,17 @@ export default function ConfessionPage() {
     setDeviceInfo(deviceInfoString);
   }, []);
 
-  // Advanced profanity detection with common bypass patterns
+  // Advanced profanity detection with normalization, leetspeak, and bad-words base
   const containsProfanity = (text) => {
     if (!text) return false;
 
-    // Normalize text for better matching
-    const normalizedText = text
+    // Normalize text: lowercase, remove special chars, collapse spaces, reduce repeats
+    let normalizedText = text
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, " ") // Remove special characters
-      .replace(/\s+/g, " ") // Collapse multiple spaces
-      .replace(/(.)\1{2,}/g, "$1") // Reduce repeated characters (e.g. fuuuuuck -> fuck)
-      .replace(/[0-9]/g, (char) => {
+      .replace(/[^a-z0-9@$\s]/g, " ") // keep @ and $ for leetspeak
+      .replace(/\s+/g, " ")
+      .replace(/(.)\1{2,}/g, "$1") // fuuuuuck -> fuck
+      .replace(/[0-9@$]/g, (char) => {
         // Leetspeak conversion
         const leetMap = {
           1: "i",
@@ -81,64 +82,107 @@ export default function ConfessionPage() {
         return leetMap[char] || char;
       });
 
-    // Comprehensive profanity list with common variations
-    const profanityPatterns = [
-      "bsdk",
-      "chutiya",
-      "behnchod",
-      "penchod",
-      "ghasti",
-      "randi",
-      "fuck",
-      "shit",
-      "asshole",
-      "bitch",
-      "cunt",
-      "nigger",
-      "nigga",
-      "whore",
-      "slut",
-      "pussy",
-      "dick",
-      "cock",
-      "piss",
-      "crap",
-      "fag",
-      "faggot",
-      "retard",
-      "damn",
-      "bastard",
-      "motherfucker",
-      "mf",
-      "screw",
-      "twat",
-      "wanker",
-      "bollocks",
-      "arse",
-      "arsehole",
-      "bloody",
-      "bugger",
-      "cow",
-      "cracker",
-      "chink",
-      "gook",
-      "kike",
-      "spic",
-      "wetback",
-      "f u c k",
-      "s h i t",
-      "a s s",
-      "b i t c h",
-      "d i c k",
-      "p u s s y",
+    // Use bad-words filter as base
+    const filter = new Filter();
+    if (filter.isProfane(normalizedText)) return true;
+
+    // Custom patterns for spaced/obfuscated/foreign/romanized words
+    const customPatterns = [
+      // English
+      "f\\s*u\\s*c\\s*k",
+      "s\\s*h\\s*i\\s*t",
+      "b\\s*i\\s*t\\s*c\\s*h",
+      "a\\s*s\\s*s",
+      "a\\s*s\\s*h\\s*o\\s*l\\s*e",
+      "b\\s*a\\s*s\\s*t\\s*a\\s*r\\s*d",
+      "c\\s*u\\s*n\\s*t",
+      "d\\s*i\\s*c\\s*k",
+      "p\\s*u\\s*s\\s*y",
+      "w\\s*h\\s*o\\s*r\\s*e",
+      "s\\s*l\\s*u\\s*t",
+      "n\\s*i\\s*g\\s*g\\s*a",
+      "n\\s*i\\s*g\\s*g\\s*e\\s*r",
+      // Roman Urdu/Hindi
+      "g\\s*a\\s*n\\s*d",
+      "l\\s*o\\s*d\\s*a",
+      "l\\s*u\\s*n\\s*d",
+      "c\\s*h\\s*u\\s*t\\s*i\\s*y\\s*a",
+      "b\\s*h\\s*e\\s*n\\s*c\\s*h\\s*o\\s*d",
+      "m\\s*a\\s*d\\s*a\\s*r\\s*c\\s*h\\s*o\\s*d",
+      "r\\s*a\\s*n\\s*d\\s*i",
+      "r\\s*a\\s*n\\s*d\\s*y",
+      "k\\s*a\\s*m\\s*i\\s*n\\s*i",
+      // Unicode/homoglyphs
+      "ѕех",
+      "ｓｅｘ",
+      "fυck",
+      "𝒇𝒖𝒄𝒌",
     ];
 
-    // Check for profanity patterns
-    return profanityPatterns.some(
-      (term) =>
-        normalizedText.includes(term) ||
-        normalizedText.includes(term.split("").join(" ")) // Check spaced versions
-    );
+    // Check custom patterns (regex, ignore spaces)
+    for (const pattern of customPatterns) {
+      const regex = new RegExp(pattern, "i");
+      if (regex.test(normalizedText)) return true;
+    }
+
+    // Check for direct matches in normalized text (for words like "gaand", "loda", etc.)
+    const directWords = [
+      "fuck",
+      "shit",
+      "bitch",
+      "ass",
+      "asshole",
+      "bastard",
+      "cunt",
+      "dick",
+      "pussy",
+      "whore",
+      "slut",
+      "nigger",
+      "nigga",
+      "gand",
+      "gaand",
+      "loda",
+      "lora",
+      "lund",
+      "chod",
+      "choda",
+      "chodna",
+      "chutiya",
+      "bsdk",
+      "bhenchod",
+      "behnchod",
+      "mc",
+      "madarchod",
+      "randi",
+      "ghasti",
+      "bhosdike",
+      "bhosadi",
+      "penchod",
+      "maa ki chut",
+      "maa ka bhosda",
+      "behen ke laude",
+      "laundiya",
+      "chinal",
+      "khanki",
+      "randi baz",
+      "kamini",
+      "kutiya",
+      "kutti",
+      "saali",
+      "harami",
+      "haraamzada",
+      "kameena",
+      "suar",
+      "suar ki aulad",
+      "gandu",
+      "chodu",
+    ];
+    for (const word of directWords) {
+      if (normalizedText.includes(word)) return true;
+    }
+
+    return false;
   };
 
   const handleSubmit = async (e) => {
