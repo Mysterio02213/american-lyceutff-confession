@@ -146,6 +146,8 @@ export default function AdminPage() {
       });
       confession.status = "opened";
     }
+    setIsEditing(false);
+    setEditMessage("");
     setSelectedConfession(confession);
   };
 
@@ -198,7 +200,20 @@ export default function AdminPage() {
     const dataUrl = finalCanvas.toDataURL("image/png");
     const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = "confession.png";
+
+    // Get first 2 or 3 words from the confession message for filename
+    let filename = "confession";
+    if (selectedConfession?.message) {
+      const words = selectedConfession.message
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(" ")
+        .slice(0, 3)
+        .join("_")
+        .replace(/[^a-zA-Z0-9_]/g, "");
+      if (words.length > 0) filename = words;
+    }
+    link.download = `${filename}.png`;
     link.click();
     toast.success("Image saved");
   };
@@ -567,13 +582,51 @@ export default function AdminPage() {
                 className="py-4 px-6 font-bold text-center text-xl border-b border-gray-700 bg-gradient-to-r from-white to-gray-200 text-black shadow-inner"
                 style={
                   selectedConfession.customColor
-                    ? {
-                        background: selectedConfession.customColor,
-                        color: "#fff",
-                        borderBottom: "2px solid #fff",
-                        textShadow: "0 1px 8px rgba(0,0,0,0.25)",
-                        transition: "background 0.3s",
-                      }
+                    ? (() => {
+                        // Utility to get luminance of a hex color
+                        function hexToRgb(hex) {
+                          let c = hex.replace("#", "");
+                          if (c.length === 3)
+                            c = c
+                              .split("")
+                              .map((x) => x + x)
+                              .join("");
+                          const num = parseInt(c, 16);
+                          return [num >> 16, (num >> 8) & 255, num & 255];
+                        }
+                        function luminance([r, g, b]) {
+                          const a = [r, g, b].map((v) => {
+                            v /= 255;
+                            return v <= 0.03928
+                              ? v / 12.92
+                              : Math.pow((v + 0.055) / 1.055, 2.4);
+                          });
+                          return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+                        }
+                        // Get background and intended text color
+                        const bg = selectedConfession.customColor;
+                        const bgRgb = hexToRgb(bg);
+                        const bgLum = luminance(bgRgb);
+                        // Use white text if background is dark, black if light
+                        const textColor = bgLum < 0.5 ? "#fff" : "#111";
+                        // If text color and bg are too close, add strong shadow
+                        const contrast = Math.abs(
+                          bgLum - (textColor === "#fff" ? 1 : 0)
+                        );
+                        const textShadow =
+                          contrast < 0.35
+                            ? "0 2px 12px #000, 0 0 2px #fff"
+                            : textColor === "#fff"
+                            ? "0 1px 8px rgba(0,0,0,0.25)"
+                            : "0 1px 8px rgba(255,255,255,0.25)";
+                        return {
+                          background: bg,
+                          color: textColor,
+                          borderBottom: "2px solid #fff",
+                          textShadow,
+                          transition: "background 0.3s",
+                        };
+                      })()
                     : {}
                 }
               >
@@ -651,9 +704,7 @@ export default function AdminPage() {
                 {!isEditing && !forceFullConfession && (
                   <button
                     className="absolute top-3 right-3 p-2 rounded-full bg-white hover:bg-gray-200 border border-gray-400 shadow-lg focus:outline-none transition z-10"
-                    style={{
-                      boxShadow: "0 2px 8px 0 #0006",
-                    }}
+                    style={{ boxShadow: "0 2px 8px 0 #0006" }}
                     onClick={() => {
                       setIsEditing(true);
                       setEditMessage(selectedConfession.message);
