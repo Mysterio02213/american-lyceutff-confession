@@ -24,6 +24,7 @@ import {
   Monitor,
   Globe,
   Info,
+  Pencil,
 } from "lucide-react";
 
 function TruncatedConfession({ text, maxLength = 200 }) {
@@ -96,6 +97,8 @@ export default function AdminPage() {
   const [forceFullConfession, setForceFullConfession] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const deleteTimeoutRef = useRef(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editMessage, setEditMessage] = useState("");
 
   useEffect(() => {
     const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
@@ -569,7 +572,7 @@ export default function AdminPage() {
                         color: "#fff",
                         borderBottom: "2px solid #fff",
                         textShadow: "0 1px 8px rgba(0,0,0,0.25)",
-                        transition: "background 0.3s"
+                        transition: "background 0.3s",
                       }
                     : {}
                 }
@@ -579,22 +582,88 @@ export default function AdminPage() {
 
               {/* Message */}
               <div
-                className={`p-6 text-white text-center font-bold whitespace-pre-wrap break-words bg-gradient-to-br from-black via-gray-900 to-gray-800 ${
+                className={`relative p-6 text-white text-center font-bold whitespace-pre-wrap break-words bg-gradient-to-br from-black via-gray-900 to-gray-800 ${
                   forceFullConfession
                     ? ""
                     : "max-h-[60vh] sm:max-h-[400px] overflow-y-auto"
                 }`}
               >
-                <p className="text-lg leading-relaxed text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.25)]">
-                  {forceFullConfession ? (
-                    selectedConfession.message
-                  ) : (
-                    <TruncatedConfession
-                      text={selectedConfession.message}
-                      maxLength={200}
+                {isEditing ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <textarea
+                      className="w-full min-h-[120px] p-3 rounded-lg bg-gray-900 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      value={editMessage}
+                      onChange={(e) => setEditMessage(e.target.value)}
+                      maxLength={1100}
                     />
-                  )}
-                </p>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white font-semibold transition"
+                        onClick={async () => {
+                          await updateDoc(
+                            doc(db, "messages", selectedConfession.id),
+                            {
+                              message: editMessage,
+                            }
+                          );
+                          setConfessions((prev) =>
+                            prev.map((c) =>
+                              c.id === selectedConfession.id
+                                ? { ...c, message: editMessage }
+                                : c
+                            )
+                          );
+                          setSelectedConfession({
+                            ...selectedConfession,
+                            message: editMessage,
+                          });
+                          setIsEditing(false);
+                          toast.success("Confession updated!");
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-800 text-white font-semibold transition"
+                        onClick={() => {
+                          setIsEditing(false);
+                          setEditMessage(selectedConfession.message);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-lg leading-relaxed text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.25)]">
+                    {forceFullConfession ? (
+                      selectedConfession.message
+                    ) : (
+                      <TruncatedConfession
+                        text={selectedConfession.message}
+                        maxLength={200}
+                      />
+                    )}
+                  </p>
+                )}
+
+                {/* Edit button: only show when not editing and not saving image */}
+                {!isEditing && !forceFullConfession && (
+                  <button
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white hover:bg-gray-200 border border-gray-400 shadow-lg focus:outline-none transition z-10"
+                    style={{
+                      boxShadow: "0 2px 8px 0 #0006",
+                    }}
+                    onClick={() => {
+                      setIsEditing(true);
+                      setEditMessage(selectedConfession.message);
+                    }}
+                    title="Edit confession"
+                    aria-label="Edit confession"
+                  >
+                    <Pencil className="w-5 h-5 text-black" />
+                  </button>
+                )}
               </div>
 
               {/* Timestamp */}

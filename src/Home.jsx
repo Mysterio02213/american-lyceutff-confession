@@ -21,7 +21,7 @@ export default function ConfessionPage() {
   const [deviceInfo, setDeviceInfo] = useState("");
   const [customColorEnabled, setCustomColorEnabled] = useState(false);
   const [customColor, setCustomColor] = useState("#ffffff");
-  const MAX_CHARS = 1200;
+  const MAX_CHARS = 1100;
 
   useEffect(() => {
     setCharCount(message.length);
@@ -125,7 +125,7 @@ export default function ConfessionPage() {
       if (regex.test(normalizedText)) return true;
     }
 
-    // Check for direct matches in normalized text (for words like "gaand", "loda", etc.)
+    // Check for direct matches as whole words only (not substrings)
     const directWords = [
       "fuck",
       "shit",
@@ -178,8 +178,11 @@ export default function ConfessionPage() {
       "gandu",
       "chodu",
     ];
+
+    // Split normalized text into words for whole-word matching
+    const words = normalizedText.split(/\s+/);
     for (const word of directWords) {
-      if (normalizedText.includes(word)) return true;
+      if (words.includes(word)) return true;
     }
 
     return false;
