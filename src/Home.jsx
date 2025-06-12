@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { addDoc, collection, Timestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  Timestamp,
+  getDoc,
+  doc as firestoreDoc,
+  onSnapshot, // <-- add this import
+} from "firebase/firestore";
 import { db } from "./firebase";
 import sendToDiscord from "./sendToDiscord";
-import { FaInstagram, FaPaperPlane, FaLock } from "react-icons/fa";
+import { FaInstagram, FaPaperPlane, FaLock, FaBan } from "react-icons/fa"; // <-- add FaBan
 import axios from "axios";
 import { UAParser } from "ua-parser-js";
 import { HexColorPicker } from "react-colorful"; // npm install react-colorful
@@ -21,6 +28,8 @@ export default function ConfessionPage() {
   const [deviceInfo, setDeviceInfo] = useState("");
   const [customColorEnabled, setCustomColorEnabled] = useState(false);
   const [customColor, setCustomColor] = useState("#ffffff");
+  const [isBanned, setIsBanned] = useState(false);
+  const [banReason, setBanReason] = useState(""); // <-- move here
   const MAX_CHARS = 1100;
 
   useEffect(() => {
@@ -57,6 +66,22 @@ export default function ConfessionPage() {
 
     setDeviceInfo(deviceInfoString);
   }, []);
+
+  // Live ban check effect
+  useEffect(() => {
+    if (!ip) return;
+    const banDocRef = firestoreDoc(db, "bannedIps", ip);
+    const unsubscribe = onSnapshot(banDocRef, (docSnap) => {
+      if (docSnap.exists() && docSnap.data().banned) {
+        setIsBanned(true);
+        setBanReason(docSnap.data().reason || "");
+      } else {
+        setIsBanned(false);
+        setBanReason("");
+      }
+    });
+    return () => unsubscribe();
+  }, [ip]);
 
   // Advanced profanity detection with normalization, leetspeak, and bad-words base
   const containsProfanity = (text) => {
@@ -249,6 +274,43 @@ export default function ConfessionPage() {
     }
   }, [success, cooldownError, profanityError]);
 
+  if (isBanned) {
+    return (
+      <div className="min-h-screen w-full bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
+        <div className="max-w-md w-full mx-auto p-8 rounded-2xl bg-gradient-to-br from-gray-900/90 via-black/90 to-gray-800/90 border border-red-500/30 shadow-2xl flex flex-col items-center">
+          <FaBan className="text-red-400 text-5xl mb-4" />{" "}
+          {/* Icon instead of emoji */}
+          <h2 className="text-2xl font-bold text-red-300 mb-2">
+            Access Restricted
+          </h2>
+          <p className="text-gray-300 text-center mb-2">
+            Your ability to submit confessions has been suspended.
+            <br />
+            {banReason && (
+              <span className="block mt-3 text-red-200 font-semibold">
+                <span className="text-red-300">Reason:</span> {banReason}
+                <br />
+                <span className="block mt-2 text-gray-300 font-normal">
+                  If you believe this action was taken in error, please contact
+                  our team on{" "}
+                  <a
+                    href="https://www.instagram.com/americanlycetuff_confession/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-300 underline hover:text-blue-400 transition"
+                  >
+                    (@americanlycetuff_confession)
+                  </a>
+                  .
+                </span>
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-black via-gray-900 to-black text-white overflow-x-hidden font-sans flex flex-col items-center justify-center">
       {/* Modern Glassmorphism Card */}
@@ -377,13 +439,16 @@ export default function ConfessionPage() {
                   Important Disclaimer
                 </p>
                 <p>
-                  By submitting this confession, I understand that it cannot be
-                  edited or deleted once posted. I agree not to include any
-                  abusive language, hate speech, false rumors, or personally
-                  identifiable information. Confessions that violate these
-                  guidelines may be reported by users and reviewed for removal.
-                  Repeated violations may lead to a permanent ban from this
-                  platform.
+                  By checking this box, you accept our{" "}
+                  <a
+                    href="/terms"
+                    className="text-gray-400 underline hover:text-gray-300 transition"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Terms and Conditions
+                  </a>
+                  .
                 </p>
               </label>
             </div>
@@ -589,11 +654,20 @@ export default function ConfessionPage() {
 
       {/* Footer */}
       <footer className="relative z-10 w-full text-center py-4 sm:py-6 text-gray-500 text-xs sm:text-sm border-t border-white/5 mt-auto px-2">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>
             © {new Date().getFullYear()} American Lycetuff Confessions.
             Everything Is Anonymous.
           </p>
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-2 py-1 from-gray-900 via-black to-gray-800 text-transparent bg-clip-text bg-gradient-to-r from-gray-400 via-gray-300 to-gray-500 font-semibold text-xs underline hover:text-gray-300 hover:border-white/30 transition"
+            style={{ marginLeft: 2, marginRight: 2 }}
+          >
+            Terms and Conditions
+          </a>
         </div>
       </footer>
     </div>

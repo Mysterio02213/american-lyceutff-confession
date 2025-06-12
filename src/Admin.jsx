@@ -7,8 +7,13 @@ import {
   updateDoc,
   doc,
   deleteDoc,
+  getDocs,
+  setDoc,
+  getDoc,
+  deleteField,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { doc as firestoreDoc } from "firebase/firestore";
 import html2canvas from "html2canvas";
 import { Toaster, toast } from "react-hot-toast";
 import {
@@ -25,6 +30,9 @@ import {
   Globe,
   Info,
   Pencil,
+  Ban,
+  Undo2,
+  ShieldX,
 } from "lucide-react";
 
 function TruncatedConfession({ text, maxLength = 200 }) {
@@ -99,6 +107,33 @@ export default function AdminPage() {
   const deleteTimeoutRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editMessage, setEditMessage] = useState("");
+  const [bannedIps, setBannedIps] = useState([]);
+  const [showBannedTab, setShowBannedTab] = useState(false);
+  const [isSelectedBanned, setIsSelectedBanned] = useState(false);
+  const [banReason, setBanReason] = useState("");
+  const [banCustomReason, setBanCustomReason] = useState("");
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [banLoading, setBanLoading] = useState(false);
+  const [unbanLoading, setUnbanLoading] = useState(false);
+
+  // Check if selected confession's IP is banned
+  useEffect(() => {
+    if (!selectedConfession?.ipAddress) {
+      setIsSelectedBanned(false);
+      return;
+    }
+    const check = async () => {
+      try {
+        const docSnap = await getDoc(
+          firestoreDoc(db, "bannedIps", selectedConfession.ipAddress)
+        );
+        setIsSelectedBanned(!!(docSnap.exists() && docSnap.data().banned));
+      } catch {
+        setIsSelectedBanned(false);
+      }
+    };
+    check();
+  }, [selectedConfession]);
 
   useEffect(() => {
     const q = query(collection(db, "messages"), orderBy("createdAt", "desc"));
@@ -302,6 +337,106 @@ export default function AdminPage() {
     }
   };
 
+  // Ban IP (now opens modal)
+  const handleBanIp = () => {
+    if (!selectedConfession?.ipAddress) {
+      toast.error("No IP address found for this confession.");
+      return;
+    }
+    setShowBanModal(true);
+  };
+
+  // Confirm Ban with cooldown
+  const handleConfirmBan = async () => {
+    if (banLoading) return;
+    const reason = banReason === "custom" ? banCustomReason.trim() : banReason;
+    if (!reason) {
+      toast.error("Please select or enter a reason.");
+      return;
+    }
+    setBanLoading(true);
+    try {
+      await setDoc(
+        firestoreDoc(db, "bannedIps", selectedConfession.ipAddress),
+        {
+          banned: true,
+          bannedAt: new Date(),
+          reason,
+        }
+      );
+      setIsSelectedBanned(true);
+      setShowBanModal(false);
+      setBanReason("");
+      setBanCustomReason("");
+      toast.success("User/IP banned successfully!");
+    } catch (err) {
+      toast.error("Failed to ban IP.");
+    } finally {
+      setTimeout(() => setBanLoading(false), 2000); // 2s cooldown
+    }
+  };
+
+  // Unban IP (for selected confession) with cooldown
+  const handleUnbanSelectedIp = async () => {
+    if (unbanLoading) return;
+    if (!selectedConfession?.ipAddress) return;
+    setUnbanLoading(true);
+    try {
+      await setDoc(
+        firestoreDoc(db, "bannedIps", selectedConfession.ipAddress),
+        { banned: false },
+        { merge: true }
+      );
+      setIsSelectedBanned(false);
+      setBannedIps((prev) =>
+        prev.filter((b) => b.ip !== selectedConfession.ipAddress)
+      );
+      toast.success("User/IP unbanned!");
+    } catch (err) {
+      toast.error("Failed to unban IP.");
+    } finally {
+      setTimeout(() => setUnbanLoading(false), 2000); // 2s cooldown
+    }
+  };
+
+  // Unban function (for banned tab) with cooldown
+  const handleUnbanIp = async (ip) => {
+    if (unbanLoading) return;
+    setUnbanLoading(true);
+    try {
+      await setDoc(
+        firestoreDoc(db, "bannedIps", ip),
+        { banned: false },
+        { merge: true }
+      );
+      setBannedIps((prev) => prev.filter((b) => b.ip !== ip));
+      // If selected confession is this IP, update state
+      if (selectedConfession?.ipAddress === ip) setIsSelectedBanned(false);
+      toast.success("User/IP unbanned!");
+    } catch (err) {
+      toast.error("Failed to unban IP.");
+    } finally {
+      setTimeout(() => setUnbanLoading(false), 2000); // 2s cooldown
+    }
+  };
+
+  // Fetch banned IPs
+  useEffect(() => {
+    if (!showBannedTab) return;
+    const fetchBannedIps = async () => {
+      const snap = await getDocs(collection(db, "bannedIps"));
+      setBannedIps(
+        snap.docs
+          .filter((doc) => doc.data().banned)
+          .map((doc) => ({
+            ip: doc.id,
+            ...doc.data(),
+          }))
+      );
+    };
+    fetchBannedIps();
+  }, [showBannedTab]);
+
   if (showPasswordPrompt && accessAllowed === false) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
@@ -368,134 +503,237 @@ export default function AdminPage() {
         className={`
         fixed md:static top-0 left-0 h-[calc(100vh-36px)] w-64 md:w-80 bg-gray-900 border-r border-gray-700 p-5 pt-20 md:pt-5 z-40 transform transition-transform duration-300
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        flex-shrink-0
       `}
+        style={{ minWidth: 0 }}
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Confessions</h2>
-          <div className="relative" ref={filterDropdownRef}>
-            <button
-              onClick={() => setShowFilterDropdown((v) => !v)}
-              className="p-2 rounded-lg border bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 focus:outline-none"
-              title="Filter confessions"
-              type="button"
-            >
-              <Filter size={18} />
-            </button>
-            {showFilterDropdown && (
-              <div className="absolute right-0 mt-2 z-20">
-                <select
-                  autoFocus
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setShowFilterDropdown(false); // Close after selection
-                  }}
-                  className="bg-black border border-gray-700 text-white rounded-lg px-3 py-2 text-sm shadow-lg focus:outline-none"
-                  style={{
-                    minWidth: 140,
-                    border: "1px solid #444",
-                  }}
-                >
-                  <option value="all">All</option>
-                  <option value="not-opened">Not Opened</option>
-                  <option value="opened">Opened</option>
-                  <option value="shared">Shared</option>
-                  <option value="reported">Reported</option>
-                </select>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button
+                onClick={() => setShowBannedTab((v) => !v)}
+                className={`
+                  p-2 rounded-full border border-gray-700 bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-red-400 focus:outline-none transition
+                  ${showBannedTab ? "bg-red-950 text-red-400 border-red-400 shadow" : ""}
+                `}
+                title="Banned Users"
+                type="button"
+                aria-label="Banned Users"
+                style={{
+                  minWidth: 0,
+                  width: 38,
+                  height: 38,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                }}
+              >
+                <ShieldX className="w-5 h-5" />
+                <span className="sr-only">Banned Users</span>
+                {bannedIps.length > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-xs font-bold rounded-full px-1.5 py-0.5 border-2 border-gray-900"
+                    style={{
+                      minWidth: 18,
+                      minHeight: 18,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                    }}
+                  >
+                    {bannedIps.length}
+                  </span>
+                )}
+              </button>
+            </div>
+            <div className="relative" ref={filterDropdownRef}>
+              <button
+                onClick={() => setShowFilterDropdown((v) => !v)}
+                className="p-2 rounded-lg border bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 focus:outline-none"
+                title="Filter confessions"
+                type="button"
+              >
+                <Filter size={18} />
+              </button>
+              {showFilterDropdown && (
+                <div className="absolute right-0 mt-2 z-20">
+                  <select
+                    autoFocus
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setShowFilterDropdown(false); // Close after selection
+                    }}
+                    className="bg-black border border-gray-700 text-white rounded-lg px-3 py-2 text-sm shadow-lg focus:outline-none"
+                    style={{
+                      minWidth: 140,
+                      border: "1px solid #444",
+                    }}
+                  >
+                    <option value="all">All</option>
+                    <option value="not-opened">Not Opened</option>
+                    <option value="opened">Opened</option>
+                    <option value="shared">Shared</option>
+                    <option value="reported">Reported</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Banned Users Tab */}
+        {showBannedTab ? (
+          <div
+            className="overflow-auto space-y-2 max-h-[70vh] pr-1 custom-scrollbar flex flex-col"
+            style={{
+              minHeight: "200px",
+              maxHeight: "calc(100vh - 120px)",
+              width: "100%",
+            }}
+          >
+            <h3 className="text-lg font-bold text-red-300 mb-2 flex items-center gap-2">
+              <Ban className="w-5 h-5" /> Banned Users
+            </h3>
+            {bannedIps.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No banned users
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 w-full">
+                {bannedIps.map((ban) => (
+                  <div
+                    key={ban.ip}
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-red-900/60 border border-red-400 rounded-xl px-4 py-3 text-sm text-red-200 w-full"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-xs break-all">
+                        {ban.ip}
+                      </div>
+                      <div className="text-xs text-gray-300">
+                        {ban.bannedAt
+                          ? new Date(
+                              ban.bannedAt.seconds
+                                ? ban.bannedAt.seconds * 1000
+                                : ban.bannedAt
+                            ).toLocaleString()
+                          : ""}
+                      </div>
+                      {ban.reason && (
+                        <div className="text-xs text-red-200 mt-1">
+                          <span className="font-semibold">Reason:</span> {ban.reason}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleUnbanIp(ban.ip)}
+                      className="flex items-center gap-1 px-3 py-1 mt-2 sm:mt-0 sm:ml-4 rounded-lg bg-gradient-to-br from-green-700 via-green-900 to-black text-white border border-green-400 hover:bg-green-800 transition-all text-xs"
+                      disabled={unbanLoading}
+                    >
+                      <Undo2 className="w-4 h-4" />
+                      {unbanLoading ? "Please wait..." : "Unban"}
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-4">
-          <input
-            type="text"
-            placeholder="Search confessions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 pl-10 text-white focus:outline-none focus:ring-1 focus:ring-white"
-          />
-          <div className="absolute left-3 top-2.5 text-gray-400">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        ) : (
+          <>
+            {/* Search */}
+            <div className="relative mb-4">
+              <input
+                type="text"
+                placeholder="Search confessions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 pl-10 text-white focus:outline-none focus:ring-1 focus:ring-white"
               />
-            </svg>
-          </div>
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-3 top-2.5 text-gray-400 hover:text-white"
-            >
-              <X size={18} />
-            </button>
-          )}
-        </div>
-
-        <div className="overflow-auto space-y-2 max-h-[70vh] pr-1 custom-scrollbar">
-          {filteredConfessions.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No confessions found
-            </div>
-          ) : (
-            filteredConfessions.map((confession) => (
-              <div
-                key={confession.id}
-                onClick={() => handleSelect(confession)}
-                className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border relative
-            ${
-              selectedConfession?.id === confession.id
-                ? "bg-white text-black border-white"
-                : confession.status === "not-opened"
-                ? "bg-gray-800 border-white text-white"
-                : confession.status === "shared"
-                ? "bg-green-900 border-green-400 text-green-200"
-                : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
-            }
-          `}
-              >
-                {/* Reported dot */}
-                {confession.reported && (
-                  <span
-                    className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full"
-                    title="Reported"
-                  ></span>
-                )}
-                <div className="mt-0.5 shrink-0">
-                  {confession.status === "not-opened" ? (
-                    <Eye className="w-4 h-4" />
-                  ) : confession.status === "shared" ? (
-                    <Check className="w-4 h-4 text-green-300" />
-                  ) : (
-                    <FileText className="w-4 h-4" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <div className="font-medium whitespace-pre-wrap break-words break-all max-w-full overflow-hidden line-clamp-2">
-                    {confession.message || "Confession"}
-                  </div>
-                  <div className="text-xs mt-1">
-                    {formatTimestamp(confession.createdAt)}
-                  </div>
-                </div>
+              <div className="absolute left-3 top-2.5 text-gray-400">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
               </div>
-            ))
-          )}
-        </div>
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+
+            <div className="overflow-auto space-y-2 max-h-[70vh] pr-1 custom-scrollbar">
+              {filteredConfessions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No confessions found
+                </div>
+              ) : (
+                filteredConfessions.map((confession) => (
+                  <div
+                    key={confession.id}
+                    onClick={() => handleSelect(confession)}
+                    className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border relative
+                ${
+                  selectedConfession?.id === confession.id
+                    ? "bg-white text-black border-white"
+                    : confession.status === "not-opened"
+                    ? "bg-gray-800 border-white text-white"
+                    : confession.status === "shared"
+                    ? "bg-green-900 border-green-400 text-green-200"
+                    : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
+                }
+              `}
+                  >
+                    {/* Reported dot */}
+                    {confession.reported && (
+                      <span
+                        className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full"
+                        title="Reported"
+                      ></span>
+                    )}
+                    <div className="mt-0.5 shrink-0">
+                      {confession.status === "not-opened" ? (
+                        <Eye className="w-4 h-4" />
+                      ) : confession.status === "shared" ? (
+                        <Check className="w-4 h-4 text-green-300" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="font-medium whitespace-pre-wrap break-words break-all max-w-full overflow-hidden line-clamp-2">
+                        {confession.message || "Confession"}
+                      </div>
+                      <div className="text-xs mt-1">
+                        {formatTimestamp(confession.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 relative">
+      <main className="flex-1 flex flex-col items-center justify-center p-6 relative min-w-0">
         {selectedConfession ? (
           <>
             {/* Report Info Tab/Button */}
@@ -761,6 +999,34 @@ export default function AdminPage() {
                   ? "Marked as Shared"
                   : "Mark as Shared"}
               </button>
+              {/* Ban/Unban Button */}
+              {isSelectedBanned ? (
+                <button
+                  onClick={handleUnbanSelectedIp}
+                  className="flex items-center gap-2 bg-gradient-to-br from-green-700 via-green-900 to-black text-white font-medium px-5 py-2.5 rounded-lg border border-green-400 hover:bg-green-800 transition-all"
+                  disabled={!selectedConfession.ipAddress || unbanLoading}
+                  title="Unban this user's IP"
+                >
+                  <Undo2 className="w-5 h-5" />
+                  {unbanLoading ? "Please wait..." : "Unban User"}
+                </button>
+              ) : (
+                <button
+                  onClick={handleBanIp}
+                  className="flex items-center gap-2 bg-gradient-to-br from-red-700 via-red-900 to-black text-white font-medium px-5 py-2.5 rounded-lg border border-red-400 hover:bg-red-800 transition-all"
+                  disabled={!selectedConfession.ipAddress || banLoading}
+                  title={
+                    selectedConfession.ipAddress
+                      ? "Ban this user's IP"
+                      : "No IP address to ban"
+                  }
+                >
+                  <span role="img" aria-label="ban">
+                    🚫
+                  </span>
+                  {banLoading ? "Please wait..." : "Ban User"}
+                </button>
+              )}
             </div>
           </>
         ) : (
@@ -873,6 +1139,75 @@ export default function AdminPage() {
           overflow: hidden;
         }
       `}</style>
+
+      {/* Ban Modal */}
+      {showBanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-xs shadow-2xl flex flex-col gap-4">
+            <h3 className="text-lg font-bold text-red-300 flex items-center gap-2">
+              <ShieldX className="w-5 h-5" /> Ban User
+            </h3>
+            <div>
+              <label className="block mb-2 text-sm font-semibold text-gray-300">
+                Select a reason for ban:
+              </label>
+              <select
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none"
+                disabled={banLoading}
+              >
+                <option value="">-- Select Reason --</option>
+                <option value="Use of Abusive or Inappropriate Language">
+                  Use of Abusive or Inappropriate Language
+                </option>
+                <option value="Sharing Sensitive or Private Information">
+                  Sharing Sensitive or Private Information
+                </option>
+                <option value="Irrelevant or Non-Constructive Submissions">
+                  Irrelevant or Non-Constructive Submissions
+                </option>
+                <option value="Spamming or Repeated Submissions">
+                  Spamming or Repeated Submissions
+                </option>
+                <option value="custom">Other (Specify Reason)</option>
+              </select>
+              {banReason === "custom" && (
+                <input
+                  type="text"
+                  value={banCustomReason}
+                  onChange={(e) => setBanCustomReason(e.target.value)}
+                  className="w-full mt-3 bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none"
+                  placeholder="Enter custom reason"
+                  maxLength={100}
+                  autoFocus
+                  disabled={banLoading}
+                />
+              )}
+            </div>
+            <div className="flex gap-2 justify-end mt-2">
+              <button
+                onClick={() => {
+                  setShowBanModal(false);
+                  setBanReason("");
+                  setBanCustomReason("");
+                }}
+                className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 text-white font-semibold transition"
+                disabled={banLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmBan}
+                className="px-4 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white font-semibold transition"
+                disabled={banLoading}
+              >
+                {banLoading ? "Please wait..." : "Ban User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
