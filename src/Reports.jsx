@@ -11,22 +11,18 @@ import {
 import { db } from "./firebase";
 import { toast, Toaster } from "react-hot-toast";
 import { Check, Flag, Search, X as CloseIcon } from "lucide-react";
-import sendToDiscord from "./sendToDiscord"; // Add this import
+import sendToDiscord from "./sendToDiscord";
 
 export default function ReportsPage() {
   const [confessions, setConfessions] = useState([]);
-  const [loading, setLoading] = useState(true); // <-- loading state
+  const [loading, setLoading] = useState(true);
   const [reportingId, setReportingId] = useState(null);
   const [reason, setReason] = useState("");
   const [reportCounts, setReportCounts] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [cooldowns, setCooldowns] = useState({});
-  const [submitting, setSubmitting] = useState({}); // Prevent multiple clicks
+  const [submitting, setSubmitting] = useState({});
 
-  // State to track expanded confessions
-  const [expanded, setExpanded] = useState({});
-
-  // Use localStorage to track user reports (max 2 per confession)
   useEffect(() => {
     const stored = localStorage.getItem("confessionReports") || "{}";
     setReportCounts(JSON.parse(stored));
@@ -61,12 +57,11 @@ export default function ReportsPage() {
       }
 
       setConfessions(docs);
-      setLoading(false); // <-- set loading false after data
+      setLoading(false);
     });
     return () => unsub();
   }, []);
 
-  // Cooldown logic: 5 seconds per confession
   const COOLDOWN_MS = 5000;
 
   const handleReport = async (confessionId) => {
@@ -74,12 +69,10 @@ export default function ReportsPage() {
       toast.error("Please provide a reason.");
       return;
     }
-    // No word limit check needed, only char limit (handled by maxLength)
     if (cooldowns[confessionId] || submitting[confessionId]) {
       toast.error("Please wait before reporting again.");
       return;
     }
-    // Check localStorage for report count
     const stored = JSON.parse(
       localStorage.getItem("confessionReports") || "{}"
     );
@@ -89,11 +82,9 @@ export default function ReportsPage() {
       return;
     }
 
-    // Prevent multiple clicks
     setSubmitting((prev) => ({ ...prev, [confessionId]: true }));
 
     try {
-      // Update Firestore
       const confessionRef = doc(db, "messages", confessionId);
       await updateDoc(confessionRef, {
         reported: true,
@@ -105,19 +96,16 @@ export default function ReportsPage() {
         ],
       });
 
-      // Send report to Discord
       const confession = confessions.find((c) => c.id === confessionId);
       await sendToDiscord(
         `Confession: "${confession?.message || ""}"\nReason: "${reason}"`,
         "report"
       );
 
-      // Update localStorage
       stored[confessionId] = count + 1;
       localStorage.setItem("confessionReports", JSON.stringify(stored));
       setReportCounts(stored);
 
-      // Set cooldown
       setCooldowns((prev) => ({
         ...prev,
         [confessionId]: true,
@@ -137,121 +125,107 @@ export default function ReportsPage() {
     }
   };
 
-  // Filter confessions by search
   const filteredConfessions = confessions.filter((confession) =>
     (confession.message || "")
       .toLowerCase()
       .includes(searchTerm.trim().toLowerCase())
   );
 
-  // Helper function for truncation
-  function isTruncated(text, maxLength = 70) {
-    return text && text.length > maxLength;
-  }
-
-  function getDisplayText(text, id, maxLength = 70) {
-    if (expanded[id] || !isTruncated(text, maxLength)) return text;
-    return text.slice(0, maxLength);
-  }
-
   return (
-    <div className="min-h-screen bg-black text-white px-4 py-8">
+    <div className="min-h-screen w-full bg-gradient-to-br from-black via-gray-900 to-black flex flex-col items-center px-2 py-8">
       <Toaster />
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-8 text-center">
-          <Flag className="mx-auto mb-2 text-gray-400" size={40} />
-          <h1 className="text-3xl font-extrabold mb-2 tracking-tight text-white">
+      <div className="w-full max-w-2xl mx-auto rounded-3xl shadow-2xl border border-gray-800 bg-gradient-to-br from-gray-900/90 via-black/95 to-gray-800/90 backdrop-blur-2xl p-0 sm:p-0 overflow-hidden">
+        {/* Header */}
+        <header className="w-full text-center py-8 px-2 sm:py-10 sm:px-6 bg-gradient-to-br from-black/90 via-gray-900/90 to-gray-800/90 border-b border-gray-800">
+          <Flag className="mx-auto mb-3 text-gray-300" size={38} />
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent drop-shadow-lg mb-2">
             Report a Confession
           </h1>
-          <p className="text-gray-400 max-w-lg mx-auto">
-            If you find a confession inappropriate or against our guidelines,
-            please report it below.
+          <p className="text-gray-400 max-w-xl mx-auto text-base sm:text-lg">
+            Help us keep the platform safe and respectful. Search and report
+            inappropriate confessions below.
           </p>
-        </div>
+        </header>
+
         {/* Search Bar */}
-        <div className="relative mb-8 max-w-lg mx-auto">
+        <div className="relative mb-8 max-w-lg mx-auto mt-8">
           <input
             type="text"
             placeholder="Search confessions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-black border border-gray-700 rounded-lg py-2 px-4 pl-10 text-white focus:outline-none focus:ring-2 focus:ring-gray-500 transition"
+            className="w-full bg-gradient-to-br from-gray-900 via-black to-gray-900 border border-gray-700 rounded-xl py-3 px-5 pl-12 text-white focus:outline-none focus:ring-2 focus:ring-gray-500 transition text-base shadow-lg"
           />
-          <span className="absolute left-3 top-2.5 text-gray-500">
-            <Search size={18} />
+          <span className="absolute left-4 top-3.5 text-gray-500">
+            <Search size={20} />
           </span>
           {searchTerm && (
             <button
               onClick={() => setSearchTerm("")}
-              className="absolute right-3 top-2.5 text-gray-500 hover:text-white"
+              className="absolute right-4 top-3.5 text-gray-500 hover:text-white"
               aria-label="Clear search"
             >
               <CloseIcon size={18} />
             </button>
           )}
         </div>
-        <div className="space-y-8 min-h-[200px] flex flex-col justify-center">
+
+        {/* Confessions List */}
+        <div className="space-y-7 min-h-[200px] flex flex-col justify-center px-3 sm:px-6 pb-10">
           {loading ? (
             <div className="flex justify-center items-center py-16">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-600"></div>
-              <span className="ml-3 text-gray-400 text-lg">
+              <span className="ml-4 text-gray-400 text-lg">
                 Loading confessions...
               </span>
             </div>
           ) : filteredConfessions.length === 0 ? (
-            <div className="text-gray-500 text-center py-16">
+            <div className="text-gray-500 text-center py-16 text-lg">
               No confessions found.
             </div>
           ) : (
             filteredConfessions
-              .slice() // make a copy to avoid mutating state
-              .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) // newest first
+              .slice()
+              .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
               .map((confession) => (
                 <div
                   key={confession.id}
-                  className="bg-gradient-to-br from-black via-gray-900 to-gray-800 border border-gray-700 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-shadow duration-200"
+                  className="relative bg-gradient-to-br from-gray-900 via-black to-gray-800 border border-gray-800 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-shadow duration-200 group"
                 >
-                  <div className="flex items-center mb-4">
-                    <span className="mx-auto text-4xl font-extrabold text-gray-200 flex items-center gap-3">
-                      <Flag size={32} className="text-gray-500" />
-                      {confession.reports || 0}
-                      <span className="text-lg font-medium text-gray-400">
-                        reports
-                      </span>
-                    </span>
-                  </div>
-                  <div className="text-lg font-semibold whitespace-pre-wrap break-words mb-4 text-white text-center">
-                    {getDisplayText(confession.message, confession.id)}
-                    {isTruncated(confession.message) && (
-                      <button
-                        onClick={() =>
-                          setExpanded((prev) => ({
-                            ...prev,
-                            [confession.id]: !prev[confession.id],
-                          }))
-                        }
-                        className="ml-2 text-gray-400 underline text-base font-medium hover:text-gray-200 transition"
-                        style={{
-                          background: "none",
-                          border: "none",
-                          padding: 0,
-                        }}
-                      >
-                        {expanded[confession.id] ? "Read less" : "Read more"}
-                      </button>
-                    )}
+                  {/* Futuristic small report button at top right */}
+                  <button
+                    onClick={() => setReportingId(confession.id)}
+                    disabled={
+                      reportCounts[confession.id] >= 2 ||
+                      cooldowns[confession.id] ||
+                      submitting[confession.id]
+                    }
+                    className={`absolute top-4 right-4 p-2 rounded-full border border-gray-700 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-gray-400 hover:text-red-400 hover:border-red-400 hover:bg-gray-900/80 transition text-xs flex items-center shadow-lg z-10
+                      ${
+                        reportCounts[confession.id] >= 2 ||
+                        cooldowns[confession.id] ||
+                        submitting[confession.id]
+                          ? "opacity-60 cursor-not-allowed"
+                          : ""
+                      }`}
+                    title="Report this confession"
+                  >
+                    <Flag size={16} className="text-red-400" />
+                  </button>
+                  <div className="text-lg font-medium whitespace-pre-wrap break-words text-center text-white tracking-wide leading-relaxed">
+                    {confession.message}
                   </div>
                   {reportCounts[confession.id] >= 2 ? (
-                    <div className="text-gray-400 text-base mt-2 font-medium flex items-center gap-2 justify-center">
-                      <Check size={18} /> You have reached the report limit for
+                    <div className="text-gray-400 text-xs mt-3 font-medium flex items-center gap-2 justify-center">
+                      <Check size={14} /> You have reached the report limit for
                       this confession.
                     </div>
                   ) : reportingId === confession.id ? (
-                    <div className="mt-2 flex flex-col gap-2">
+                    <div className="mt-4 flex flex-col gap-2 bg-gradient-to-br from-gray-900/80 via-black/80 to-gray-800/80 border border-gray-700 rounded-xl p-4">
                       <textarea
-                        className="w-full p-3 rounded-lg bg-black border border-gray-700 text-white focus:ring-2 focus:ring-gray-500 transition"
-                        rows={3}
-                        placeholder="Please enter your reason for reporting..."
+                        className="w-full p-2 rounded bg-black border border-gray-700 text-white focus:ring-2 focus:ring-gray-500 transition text-sm"
+                        rows={2}
+                        placeholder="Reason for reporting..."
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
                         maxLength={300}
@@ -267,14 +241,14 @@ export default function ReportsPage() {
                           {300 - reason.length}
                         </span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 mt-2">
                         <button
                           onClick={() => handleReport(confession.id)}
                           disabled={
                             cooldowns[confession.id] ||
                             submitting[confession.id]
                           }
-                          className={`flex-1 bg-white text-black border border-gray-700 px-4 py-2 rounded-lg font-bold transition shadow-sm hover:bg-gray-100 hover:text-black ${
+                          className={`flex-1 bg-gradient-to-br from-white via-gray-200 to-gray-400 text-black border border-gray-700 px-3 py-2 rounded-lg font-bold text-xs transition shadow-sm hover:bg-gray-100 hover:text-black ${
                             cooldowns[confession.id] ||
                             submitting[confession.id]
                               ? "opacity-60 cursor-not-allowed"
@@ -283,41 +257,20 @@ export default function ReportsPage() {
                         >
                           {cooldowns[confession.id] || submitting[confession.id]
                             ? "Please wait..."
-                            : "Submit Report"}
+                            : "Submit"}
                         </button>
                         <button
                           onClick={() => {
                             setReportingId(null);
                             setReason("");
                           }}
-                          className="flex-1 bg-black text-white border border-gray-700 px-4 py-2 rounded-lg font-bold transition shadow-sm hover:bg-gray-900"
+                          className="flex-1 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white border border-gray-700 px-3 py-2 rounded-lg font-bold text-xs transition shadow-sm hover:bg-gray-900"
                         >
                           Cancel
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => setReportingId(confession.id)}
-                      disabled={
-                        reportCounts[confession.id] >= 2 ||
-                        cooldowns[confession.id] ||
-                        submitting[confession.id]
-                      }
-                      className={`w-full bg-white text-black border border-gray-700 px-4 py-2 rounded-lg mt-2 font-bold flex items-center justify-center gap-2 transition shadow-sm hover:bg-gray-100 hover:text-black ${
-                        reportCounts[confession.id] >= 2 ||
-                        cooldowns[confession.id] ||
-                        submitting[confession.id]
-                          ? "opacity-60 cursor-not-allowed"
-                          : ""
-                      }`}
-                    >
-                      <Flag size={18} className="text-black" />
-                      {cooldowns[confession.id]
-                        ? "Please wait a moment before reporting again..."
-                        : "Report this confession"}
-                    </button>
-                  )}
+                  ) : null}
                 </div>
               ))
           )}
