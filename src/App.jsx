@@ -9,6 +9,8 @@ import SignUp from "./SignUp";
 import Login from "./Login";
 import Home from "./Home"; // Import the new Home page
 import Post from "./Post";
+import Profile from "./Profile";
+import EditProfile from "./EditProfile";
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
         <Route path="/login" element={<Login />} /> {/* Login route */}
         <Route path="/home" element={<Home />} /> {/* Protected Home page */}
         <Route path="/post" element={<Post />} /> {/* Plus button redirect */}
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/edit-profile" element={<EditProfile />} />
       </Routes>
     </Router>
   );
