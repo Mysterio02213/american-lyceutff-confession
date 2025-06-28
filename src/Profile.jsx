@@ -1,105 +1,176 @@
 // Instagram-style profile layout with black/gray theme
 import React, { useEffect, useState } from "react";
+import { db, auth } from "./firebase";
+import { collection, query, where, onSnapshot, getDocs, doc, updateDoc } from "firebase/firestore";
+import { FaUserCircle, FaEnvelope, FaUserFriends, FaUserPlus, FaUserMinus } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "./firebase";
-import { signOut, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 
 const Profile = () => {
-  const [userData, setUserData] = useState(null);
+  const [user, setUser] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const currentUser = auth.currentUser;
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) return navigate("/login");
-      const docSnap = await getDoc(doc(db, "users", user.uid));
-      if (docSnap.exists()) setUserData(docSnap.data());
+    if (!currentUser) return;
+    setLoading(true);
+    const unsub = onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
+      setUser({ id: docSnap.id, ...docSnap.data() });
+      setLoading(false);
     });
     return () => unsub();
-  }, [navigate]);
+  }, [currentUser]);
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    navigate("/login");
-  };
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(collection(db, "posts"), where("userId", "==", currentUser.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      setPosts(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, [currentUser]);
 
-  if (!userData)
+  useEffect(() => {
+    if (!currentUser) return;
+    // Followers
+    const q1 = query(collection(db, "followers"), where("userId", "==", currentUser.uid));
+    const unsub1 = onSnapshot(q1, (snap) => {
+      setFollowers(snap.docs.map((doc) => doc.data().followerId));
+    });
+    // Following
+    const q2 = query(collection(db, "followers"), where("followerId", "==", currentUser.uid));
+    const unsub2 = onSnapshot(q2, (snap) => {
+      setFollowing(snap.docs.map((doc) => doc.data().userId));
+    });
+    return () => { unsub1(); unsub2(); };
+  }, [currentUser]);
+
+  useEffect(() => {
+    // Suggestions: users not followed by current user
+    const fetchSuggestions = async () => {
+      const usersSnap = await getDocs(collection(db, "users"));
+      const allUsers = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setSuggestions(allUsers.filter(u => u.id !== currentUser.uid && !following.includes(u.id)));
+    };
+    if (currentUser && following.length) fetchSuggestions();
+  }, [currentUser, following]);
+
+  if (loading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
-        <p className="text-lg text-gray-400">Loading profile...</p>
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-gray-300 border-t-black rounded-full animate-spin"></div>
       </div>
     );
+  }
+
+  const classBranch = (user.classStatus && user.branch)
+    ? `${user.classStatus} | ${user.branch}`
+    : 'Not in school';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white px-4 py-10">
-      <div className="max-w-4xl mx-auto">
-        {/* Profile Header */}
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 border border-white/10 bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80 rounded-2xl p-6 shadow-xl">
-          <div className="w-28 h-28 rounded-full bg-gray-700 flex items-center justify-center text-3xl font-bold">
-            {userData.fullName?.charAt(0).toUpperCase()}
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white font-sans">
+      <div className="max-w-2xl mx-auto py-8 px-2 sm:px-6">
+        <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
+          <FaUserCircle className="text-7xl text-white/40" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-2xl font-bold truncate">{user.username || 'User'}</span>
+              <span className="text-xs bg-white/10 text-white px-2 py-1 rounded-full">{classBranch}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-300 mb-2">
+              <FaEnvelope className="text-base" />
+              <span className="truncate">{user.email}</span>
+            </div>
+            <div className="flex gap-4 text-sm">
+              <button onClick={() => setShowFollowers(true)} className="hover:underline">
+                <FaUserFriends className="inline mr-1" /> {followers.length} Followers
+              </button>
+              <button onClick={() => setShowFollowing(true)} className="hover:underline">
+                <FaUserPlus className="inline mr-1" /> {following.length} Following
+              </button>
+            </div>
           </div>
-          <div className="flex-1 w-full">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                @{userData.username}
-              </h2>
-              <div className="flex gap-2 mt-3 sm:mt-0">
-                <button
-                  className="px-4 py-2 text-sm font-semibold bg-black border border-white/10 rounded hover:border-white/30"
-                  onClick={() => navigate("/edit-profile")}
-                >
-                  Edit Profile
-                </button>
-                <button
-                  className="px-4 py-2 text-sm font-semibold bg-red-700 hover:bg-red-600 rounded"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-            <div className="flex gap-6 mt-4 text-sm text-gray-400">
-              <p>
-                <span className="text-white font-bold">
-                  {userData.followers?.length || 0}
-                </span>{" "}
-                Followers
-              </p>
-              <p>
-                <span className="text-white font-bold">
-                  {userData.following?.length || 0}
-                </span>{" "}
-                Following
-              </p>
-              <p>
-                <span className="text-white font-bold">
-                  {userData.classStatus}
-                </span>{" "}
-                • {userData.branch}
-              </p>
-            </div>
-            <p className="mt-3 text-gray-300 text-sm">{userData.fullName}</p>
+          <button onClick={() => navigate('/edit-profile')} className="bg-white text-black rounded-full px-4 py-2 font-semibold hover:bg-gray-200 transition w-full sm:w-auto">Edit Profile</button>
+        </div>
+        {/* Suggestions */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold mb-2">Suggestions for you</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {suggestions.length === 0 ? (
+              <span className="text-gray-400">No suggestions</span>
+            ) : suggestions.map((s) => (
+              <button key={s.id} onClick={() => navigate(`/profile/${s.id}`)} className="flex flex-col items-center bg-white/10 rounded-lg p-3 min-w-[100px] hover:bg-white/20 transition">
+                <FaUserCircle className="text-3xl text-white/40 mb-1" />
+                <span className="text-sm font-semibold truncate max-w-[80px]">{s.username || 'User'}</span>
+                <span className="text-xs text-gray-300 truncate max-w-[80px]">{(s.classStatus && s.branch) ? `${s.classStatus} | ${s.branch}` : 'Not in school'}</span>
+              </button>
+            ))}
           </div>
         </div>
-
-        {/* Divider */}
-        <div className="border-t border-white/10 my-6"></div>
-
-        {/* Placeholder for posts or activity grid */}
-        <div className="text-center text-gray-500 text-sm italic mb-8">
-          Your posts and activity will show here in future updates.
-        </div>
-
-        {/* Back to Home Button */}
-        <div className="text-center">
-          <button
-            onClick={() => navigate("/home")}
-            className="px-5 py-2 rounded-lg bg-black border border-white/10 text-white hover:border-white/30 hover:bg-gray-800 transition-all"
-          >
-            ← Back to Home
-          </button>
+        {/* Posts grid */}
+        <div>
+          <h2 className="text-lg font-semibold mb-2">Your Posts</h2>
+          {posts.length === 0 ? (
+            <div className="text-gray-400 py-8 text-center">No posts yet.</div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {posts.map((post) => (
+                <div key={post.id} className="bg-white/10 rounded-lg aspect-square flex items-center justify-center text-white text-center p-2 truncate">
+                  {post.content || <span className="text-gray-400">No content</span>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+      {/* Followers Modal */}
+      {showFollowers && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xs mx-2">
+            <h3 className="font-bold text-lg mb-4 text-black">Followers</h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {followers.length === 0 ? (
+                <div className="text-gray-400">No followers</div>
+              ) : (
+                followers.map(fid => (
+                  <button key={fid} onClick={() => { setShowFollowers(false); navigate(`/profile/${fid}`); }} className="flex items-center gap-2 w-full p-2 rounded hover:bg-black/5 text-left">
+                    <FaUserCircle className="text-xl text-black/40" />
+                    <span className="font-semibold text-black truncate">{fid}</span>
+                  </button>
+                ))
+              )}
+            </div>
+            <button onClick={() => setShowFollowers(false)} className="mt-4 w-full bg-black text-white rounded-full py-2 font-semibold">Close</button>
+          </div>
+        </div>
+      )}
+      {/* Following Modal */}
+      {showFollowing && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xs mx-2">
+            <h3 className="font-bold text-lg mb-4 text-black">Following</h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {following.length === 0 ? (
+                <div className="text-gray-400">Not following anyone</div>
+              ) : (
+                following.map(fid => (
+                  <button key={fid} onClick={() => { setShowFollowing(false); navigate(`/profile/${fid}`); }} className="flex items-center gap-2 w-full p-2 rounded hover:bg-black/5 text-left">
+                    <FaUserCircle className="text-xl text-black/40" />
+                    <span className="font-semibold text-black truncate">{fid}</span>
+                  </button>
+                ))
+              )}
+            </div>
+            <button onClick={() => setShowFollowing(false)} className="mt-4 w-full bg-black text-white rounded-full py-2 font-semibold">Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

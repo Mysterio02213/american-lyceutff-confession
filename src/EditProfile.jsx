@@ -102,9 +102,9 @@ const EditProfile = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white p-6 flex items-center justify-center">
-      <div className="w-full max-w-xl bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80 border border-white/10 rounded-2xl p-8">
-        <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-white via-gray-300 to-gray-500 bg-clip-text text-transparent">
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white p-2 flex items-center justify-center font-sans">
+      <div className="w-full max-w-xl bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80 border border-white/10 rounded-2xl p-4 sm:p-8 shadow-2xl">
+        <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-center bg-gradient-to-r from-white via-gray-300 to-gray-500 bg-clip-text text-transparent">
           Edit Your Profile
         </h2>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -115,7 +115,7 @@ const EditProfile = () => {
               name="fullName"
               value={formData.fullName}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="w-full px-3 py-2 bg-black/80 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-inner"
               required
             />
           </div>
@@ -126,7 +126,7 @@ const EditProfile = () => {
               name="username"
               value={formData.username}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="w-full px-3 py-2 bg-black/80 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-inner"
               required
             />
           </div>
@@ -141,14 +141,12 @@ const EditProfile = () => {
                   setFormData((prev) => ({ ...prev, branch: e.target.value }));
                 }}
                 onFocus={() => setShowBranchDropdown(true)}
-                onBlur={() =>
-                  setTimeout(() => setShowBranchDropdown(false), 150)
-                }
+                onBlur={() => setTimeout(() => setShowBranchDropdown(false), 150)}
                 placeholder="Search or select branch"
-                className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="w-full px-3 py-2 bg-black/80 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-inner"
               />
               {showBranchDropdown && (
-                <div className="absolute z-20 mt-1 w-full bg-black border border-white/10 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-20 mt-1 w-full bg-black/90 border border-white/10 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                   {filteredBranches.map((b) => (
                     <div
                       key={b.name}
@@ -172,26 +170,26 @@ const EditProfile = () => {
               name="classStatus"
               value={formData.classStatus}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-black border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
+              className="w-full px-3 py-2 bg-black/80 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-inner"
             >
               {CLASS_OPTIONS.map((cls) => (
-                <option key={cls} value={cls}>
+                <option key={cls} value={cls} className="bg-black text-white">
                   {cls}
                 </option>
               ))}
             </select>
           </div>
-          <div className="flex justify-between gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row justify-between gap-4 pt-4">
             <button
               type="submit"
-              className="flex-1 py-3 rounded-xl font-bold bg-black border border-white/10 hover:border-white/30 hover:scale-105 transition"
+              className="flex-1 py-3 rounded-xl font-bold bg-black border border-white/10 hover:border-white/30 hover:scale-105 transition shadow"
             >
               Save Changes
             </button>
             <button
               type="button"
               onClick={() => navigate("/profile")}
-              className="flex-1 py-3 rounded-xl font-bold bg-gray-700 hover:bg-gray-600 text-white"
+              className="flex-1 py-3 rounded-xl font-bold bg-gray-700 hover:bg-gray-600 text-white shadow"
             >
               Cancel
             </button>
