@@ -10,8 +10,8 @@ const Header = () => {
   const [showLogout, setShowLogout] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
 
-  // Hide header on login/signup
-  if (["/login", "/signup"].includes(location.pathname)) return null;
+  // Hide header on login/signup, confess, admin, report, terms, landing, and 404
+  if (["/login", "/signup", "/confess", "/admin-mysterio-lahorelahore", "/report", "/terms", "/", "/404"].includes(location.pathname)) return null;
 
   // Placeholder: In a real app, listen to Firestore for unread/typing status
   useEffect(() => {
