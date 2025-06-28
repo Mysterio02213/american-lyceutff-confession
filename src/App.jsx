@@ -22,6 +22,8 @@ function App() {
         <Route path="/admin-mysterio-lahorelahore" element={<Admin />} />
         <Route path="/report" element={<Reports />} />
         <Route path="/terms" element={<Terms />} />
+
+        
         {/* <Route path="/signup" element={<SignUp />} /> 
         <Route path="/login" element={<Login />} /> 
         <Route path="/home" element={<Home />} /> 
