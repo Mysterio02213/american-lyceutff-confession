@@ -5,12 +5,12 @@ import Admin from "./Admin";
 import Reports from "./Reports";
 import Terms from "./Terms";
 import Landing from "./Landing";
-import SignUp from "./SignUp";
-import Login from "./Login";
-import Home from "./Home"; // Import the new Home page
-import Post from "./Post";
-import Profile from "./Profile";
-import EditProfile from "./EditProfile";
+// import SignUp from "./SignUp";
+// import Login from "./Login";
+// import Home from "./Home"; // Import the new Home page
+// import Post from "./Post";
+// import Profile from "./Profile";
+// import EditProfile from "./EditProfile";
 
 function App() {
   return (
