@@ -22,12 +22,12 @@ function App() {
         <Route path="/admin-mysterio-lahorelahore" element={<Admin />} />
         <Route path="/report" element={<Reports />} />
         <Route path="/terms" element={<Terms />} />
-        <Route path="/signup" element={<SignUp />} /> {/* Sign Up route */}
-        <Route path="/login" element={<Login />} /> {/* Login route */}
-        <Route path="/home" element={<Home />} /> {/* Protected Home page */}
-        <Route path="/post" element={<Post />} /> {/* Plus button redirect */}
+        {/* <Route path="/signup" element={<SignUp />} /> 
+        <Route path="/login" element={<Login />} /> 
+        <Route path="/home" element={<Home />} /> 
+        <Route path="/post" element={<Post />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/edit-profile" element={<EditProfile />} />
+        <Route path="/edit-profile" element={<EditProfile />} /> */}
       </Routes>
     </Router>
   );
