@@ -80,6 +80,7 @@ const SignUp = () => {
   const [newBranchName, setNewBranchName] = useState("");
   const [newBranchSuccess, setNewBranchSuccess] = useState(false);
   const [classStatus, setClassStatus] = useState(CLASS_OPTIONS[0]);
+  const [instagram, setInstagram] = useState("");
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -136,6 +137,10 @@ const SignUp = () => {
       setError("Please select your class.");
       return;
     }
+    if (!instagram.trim()) {
+      setError("Instagram username is required.");
+      return;
+    }
 
     setChecking(true);
     const uname = username.trim().toLowerCase();
@@ -157,6 +162,7 @@ const SignUp = () => {
         fullName,
         username: uname,
         email,
+        instagram: instagram.trim(),
         inSchool,
         branch: inSchool ? selectedBranch : "",
         classStatus: inSchool ? classStatus : "",
@@ -239,6 +245,25 @@ const SignUp = () => {
                 required
                 placeholder="Your full name"
               />
+            </div>
+            <div>
+              <label className="block mb-1 font-semibold">
+                Instagram Username:
+              </label>
+              <input
+                type="text"
+                className="w-full rounded-lg p-3 bg-black border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
+                value={instagram}
+                onChange={(e) =>
+                  setInstagram(e.target.value.replace(/\s/g, ""))
+                }
+                required
+                placeholder="your_instagram (no spaces)"
+                autoComplete="off"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                We'll never share your Instagram. Used for verification only.
+              </p>
             </div>
             <div>
               <label className="block mb-1 font-semibold">Username:</label>

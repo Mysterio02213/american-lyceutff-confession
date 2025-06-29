@@ -74,11 +74,31 @@ const Post = () => {
     }
   }, [content, users, userProfile]);
 
-  // Handle mention click
+  // Handle mention click (insert at cursor position)
   const handleMentionClick = (username) => {
-    setContent((prev) => prev.replace(/@([a-zA-Z0-9._-]*)$/, `@${username} `));
-    setMentionSuggestions([]);
-    setTimeout(() => textareaRef.current.focus(), 0);
+    const textarea = textareaRef.current;
+    const value = content;
+    const selectionStart = textarea.selectionStart;
+    // Find the last @... before the cursor
+    const before = value.slice(0, selectionStart);
+    const after = value.slice(selectionStart);
+    const match = before.match(/@([a-zA-Z0-9._-]*)$/);
+    if (match) {
+      const startIdx = before.lastIndexOf("@" + match[1]);
+      const newBefore = before.slice(0, startIdx) + `@${username} `;
+      const newValue = newBefore + after;
+      setContent(newValue);
+      setMentionSuggestions([]);
+      setTimeout(() => {
+        textarea.focus();
+        // Move cursor to after inserted mention
+        textarea.selectionStart = textarea.selectionEnd = newBefore.length;
+      }, 0);
+    } else {
+      setContent(value + `@${username} `);
+      setMentionSuggestions([]);
+      setTimeout(() => textarea.focus(), 0);
+    }
   };
 
   // Handle post submit (written only, limitless text)
@@ -104,6 +124,7 @@ const Post = () => {
         authorName: userProfile.fullName,
         authorUsername: userProfile.username,
         classStatus: userProfile.classStatus || "",
+        branch: userProfile.branch || "",
         createdAt: serverTimestamp(),
         images: [], // always empty, for compatibility
       });

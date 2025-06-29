@@ -117,7 +117,15 @@ const Profile = () => {
         <div>
           <h2 className="text-lg font-semibold mb-2">Your Posts</h2>
           {posts.length === 0 ? (
-            <div className="text-gray-400 py-8 text-center">No posts yet.</div>
+            <div className="text-gray-400 py-8 text-center flex flex-col items-center gap-4">
+              <span>No posts yet.</span>
+              <button
+                onClick={() => navigate('/post')}
+                className="mt-2 px-6 py-3 rounded-full bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white font-bold text-base shadow-lg border border-white/10 hover:scale-105 hover:bg-white/10 transition"
+              >
+                Create a Post
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {posts.map((post) => (

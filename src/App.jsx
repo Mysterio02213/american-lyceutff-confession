@@ -1,5 +1,10 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import Confession from "./Confession";
 import Admin from "./Admin";
 import Reports from "./Reports";
@@ -44,15 +49,78 @@ function App() {
         <Route path="/report" element={<Reports />} />
         <Route path="/terms" element={<Terms />} />
         {/* Private/dev-only routes */}
-        <Route path="/signup" element={<PrivateRoute><SignUp /></PrivateRoute>} />
-        <Route path="/login" element={<PrivateRoute><Login /></PrivateRoute>} />
-        <Route path="/home" element={<PrivateRoute><Home /></PrivateRoute>} />
-        <Route path="/post" element={<PrivateRoute><Post /></PrivateRoute>} />
-        <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-        <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
-        <Route path="/social" element={<PrivateRoute><Social /></PrivateRoute>} />
-        <Route path="/messaging" element={<PrivateRoute><Messaging /></PrivateRoute>} />
-        <Route path="/profile/:userId" element={<PrivateRoute><ProfileView /></PrivateRoute>} />
+        <Route
+          path="/signup"
+          element={
+            <PrivateRoute>
+              <SignUp />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PrivateRoute>
+              <Login />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/home"
+          element={
+            <PrivateRoute>
+              <Home />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/post"
+          element={
+            <PrivateRoute>
+              <Post />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <Profile />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/edit-profile"
+          element={
+            <PrivateRoute>
+              <EditProfile />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/social"
+          element={
+            <PrivateRoute>
+              <Social />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/messaging"
+          element={
+            <PrivateRoute>
+              <Messaging />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile/:userId"
+          element={
+            <PrivateRoute>
+              <ProfileView />
+            </PrivateRoute>
+          }
+        />
         {/* 404 route */}
         <Route path="/404" element={<NotFound />} />
         <Route path="*" element={<NotFound />} />
