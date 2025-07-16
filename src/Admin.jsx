@@ -830,9 +830,9 @@ export default function AdminPage() {
               }}
             >
               <div
-                className="rounded-2xl shadow-2xl border confession-glass"
+                className="shadow-2xl border confession-glass"
                 style={{
-                  border: "4px solid",
+                  border: "3px solid",
                   borderColor: selectedConfession?.customColor
                     ? selectedConfession.customColor
                     : "#111",
@@ -847,12 +847,18 @@ export default function AdminPage() {
                   transition: "box-shadow 0.3s, border 0.3s, background 0.3s",
                   position: "relative",
                   overflow: "hidden",
-                  borderRadius: "1.25rem",
+                  borderRadius: "1rem",
+                  minWidth: "320px",
+                  maxWidth: "100%",
+                  width: "100%",
+                  minHeight: "220px",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
                 {/* Header */}
                 <div
-                  className="py-7 px-10 font-extrabold text-center text-3xl border-b"
+                  className="py-6 px-6 font-extrabold text-center text-2xl border-b"
                   style={{
                     borderColor: "transparent",
                     color: selectedConfession?.customColor ? "#fff" : "#111",
@@ -864,8 +870,8 @@ export default function AdminPage() {
                     textShadow: selectedConfession?.customColor
                       ? "0 2px 16px #000a"
                       : "none",
-                    borderTopLeftRadius: "1.25rem",
-                    borderTopRightRadius: "1.25rem",
+                    borderTopLeftRadius: "1rem",
+                    borderTopRightRadius: "1rem",
                     boxShadow: selectedConfession?.customColor
                       ? `0 2px 16px ${selectedConfession.customColor}33`
                       : "0 2px 16px #1112",
@@ -875,25 +881,28 @@ export default function AdminPage() {
                 </div>
                 {/* Message */}
                 <div
-                  className="relative p-10 text-center font-semibold whitespace-pre-wrap break-words"
+                  className="relative px-6 py-8 text-center font-semibold whitespace-pre-wrap break-words flex-1"
                   style={{
                     color: selectedConfession?.customColor ? "#fff" : "#111",
-                    fontSize: "1.25rem",
+                    fontSize: "1.15rem",
                     textShadow: selectedConfession?.customColor
                       ? "0 2px 12px #000c"
                       : "none",
                     background: selectedConfession?.customColor
                       ? "transparent"
                       : "#fff",
-                    minHeight: "120px",
                     fontFamily: "Inter, Arial, sans-serif",
                     lineHeight: "1.7",
+                    minHeight: "120px",
+                    maxHeight: "60vh",
+                    overflowY: "auto",
+                    borderRadius: 0,
                   }}
                 >
                   {isEditing ? (
-                    <div className="flex flex-col items-center gap-3">
+                    <div className="flex flex-col items-center gap-3 w-full">
                       <textarea
-                        className="w-full min-h-[120px] p-4 rounded-xl bg-black/70 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className="w-full min-h-[120px] p-4 rounded-lg bg-black/70 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
                         value={editMessage}
                         onChange={(e) => setEditMessage(e.target.value)}
                         maxLength={1100}
@@ -901,11 +910,13 @@ export default function AdminPage() {
                           fontSize: "1.1rem",
                           fontFamily: "Inter, Arial, sans-serif",
                           boxShadow: "0 2px 12px #0008",
+                          width: "100%",
+                          minWidth: 0,
                         }}
                       />
-                      <div className="flex gap-2 mt-2">
+                      <div className="flex flex-col sm:flex-row gap-2 mt-2 w-full justify-center items-center">
                         <button
-                          className="px-5 py-2 rounded-xl bg-gradient-to-br from-blue-500 via-blue-700 to-blue-900 text-white font-bold shadow-lg hover:from-blue-600 hover:to-blue-800 transition"
+                          className="w-full sm:w-auto px-5 py-2 rounded-lg bg-gradient-to-br from-blue-500 via-blue-700 to-blue-900 text-white font-bold shadow-lg hover:from-blue-600 hover:to-blue-800 transition"
                           onClick={async () => {
                             await updateDoc(
                               doc(db, "messages", selectedConfession.id),
@@ -931,7 +942,7 @@ export default function AdminPage() {
                           Save
                         </button>
                         <button
-                          className="px-5 py-2 rounded-xl bg-gray-700 hover:bg-gray-800 text-white font-bold shadow-lg transition"
+                          className="w-full sm:w-auto px-5 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 text-white font-bold shadow-lg transition"
                           onClick={() => {
                             setIsEditing(false);
                             setEditMessage(selectedConfession.message);
@@ -1007,8 +1018,8 @@ export default function AdminPage() {
                   style={{
                     fontWeight: 500,
                     letterSpacing: "0.02em",
-                    borderBottomLeftRadius: "1.25rem",
-                    borderBottomRightRadius: "1.25rem",
+                    borderBottomLeftRadius: "1rem",
+                    borderBottomRightRadius: "1rem",
                     background: selectedConfession?.customColor
                       ? `${selectedConfession.customColor}cc`
                       : "#f3f4f6",
