@@ -214,8 +214,18 @@ export default function AdminPage() {
     if (!confessionRef.current) return;
     setForceFullConfession(true);
     await new Promise((resolve) => setTimeout(resolve, 50));
+    // Get the background color from the confession box
+    let bgColor = "#fff";
+    if (selectedConfession?.customColor) {
+      bgColor = selectedConfession.customColor + "cc";
+    }
+    // Use computed style if needed
+    const computedBg = window.getComputedStyle(
+      confessionRef.current
+    ).background;
+    // html2canvas does not support gradients as backgroundColor, so fallback to solid color
     const canvas = await html2canvas(confessionRef.current, {
-      backgroundColor: null,
+      backgroundColor: bgColor,
       scale: 3,
     });
     setForceFullConfession(false);
@@ -225,7 +235,7 @@ export default function AdminPage() {
     finalCanvas.width = size;
     finalCanvas.height = size;
     const ctx = finalCanvas.getContext("2d");
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, size, size);
     ctx.drawImage(
       canvas,
@@ -968,11 +978,18 @@ export default function AdminPage() {
                       {selectedConfession.instagramUsername &&
                         selectedConfession.identityConfirmed && (
                           <div
-                            className="mt-6 text-base text-center font-semibold text-gray-200"
+                            className="mt-6 text-base text-center font-semibold"
                             style={{
                               fontWeight: 500,
                               letterSpacing: "0.02em",
-                              textShadow: "0 1px 8px #0004, 1px 1px 0 #222",
+                              color: selectedConfession?.customColor
+                                ? "#e0e6f0"
+                                : "#888",
+                              opacity: 0.8,
+                              textShadow: selectedConfession?.customColor
+                                ? "0 1px 8px #0004, 1px 1px 0 #222"
+                                : "none",
+                              transition: "color 0.3s",
                             }}
                           >
                             Sent by:{" "}
@@ -985,7 +1002,12 @@ export default function AdminPage() {
                                 rel="noopener noreferrer"
                                 className="underline hover:text-blue-400 transition"
                                 style={{
-                                  textShadow: "0 1px 8px #0004, 1px 1px 0 #222",
+                                  color: selectedConfession?.customColor
+                                    ? "#e0e6f0"
+                                    : "#888",
+                                  textShadow: selectedConfession?.customColor
+                                    ? "0 1px 8px #0004, 1px 1px 0 #222"
+                                    : "none",
                                 }}
                               >
                                 @{selectedConfession.instagramUsername}
