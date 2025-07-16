@@ -1120,59 +1120,49 @@ export default function AdminPage() {
           )}
 
         {selectedConfession && (
-          <div className="w-full flex justify-center mt-6 md:mt-10">
-            <div
-              className="flex flex-row flex-wrap justify-center items-center gap-3 px-0 py-0"
-              style={{
-                width: "100%",
-                maxWidth: "540px",
-                position: "relative",
-                zIndex: 2,
-                margin: "0 auto",
-              }}
-            >
+          <div className="w-full flex justify-center mt-6 md:mt-10 px-4">
+            <div className="w-full max-w-2xl flex flex-wrap justify-center gap-3 z-20">
               <button
                 onClick={handleSaveImage}
-                className="flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-gray-300 bg-white text-black hover:bg-gray-100 w-full sm:w-auto"
-                style={{ minWidth: 120 }}
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-black hover:bg-gray-100 font-medium transition-all w-full sm:w-auto min-w-[140px]"
               >
                 <Download size={18} />
                 Save as Image
               </button>
+
               <button
                 onClick={handleDeleteClick}
-                className={`flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-red-700 bg-red-900 text-white hover:bg-red-800 w-full sm:w-auto
-        ${deleteConfirm ? "border-red-500 bg-red-700" : ""}
-      `}
-                style={{ minWidth: 120 }}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-full border bg-red-900 text-white font-medium transition-all w-full sm:w-auto min-w-[140px] ${
+                  deleteConfirm
+                    ? "border-red-500 bg-red-700"
+                    : "border-red-700 hover:bg-red-800"
+                }`}
               >
                 <Trash2 size={18} />
                 {deleteConfirm ? "Confirm?" : "Delete"}
               </button>
+
               <button
                 onClick={handleMarkAsShared}
                 disabled={selectedConfession.status === "shared"}
-                className={`flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-green-600 bg-green-700 text-white hover:bg-green-800 w-full sm:w-auto
-        ${
-          selectedConfession.status === "shared"
-            ? "opacity-60 cursor-not-allowed"
-            : ""
-        }
-      `}
-                style={{ minWidth: 120 }}
+                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium transition-all w-full sm:w-auto min-w-[140px] ${
+                  selectedConfession.status === "shared"
+                    ? "opacity-60 cursor-not-allowed bg-green-800 border-green-600 text-white"
+                    : "bg-green-700 border-green-600 hover:bg-green-800 text-white"
+                }`}
               >
                 <Check size={18} />
                 {selectedConfession.status === "shared"
                   ? "Marked as Shared"
                   : "Mark as Shared"}
               </button>
+
               {isSelectedBanned ? (
                 <button
                   onClick={handleUnbanSelectedIp}
-                  className="flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-green-600 bg-green-700 text-white hover:bg-green-800"
                   disabled={!selectedConfession.ipAddress || unbanLoading}
                   title="Unban this user's IP"
-                  style={{ minWidth: 120 }}
+                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-700 border border-green-600 text-white hover:bg-green-800 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-50"
                 >
                   <Undo2 className="w-5 h-5" />
                   {unbanLoading ? "Please wait..." : "Unban User"}
@@ -1180,19 +1170,15 @@ export default function AdminPage() {
               ) : (
                 <button
                   onClick={handleBanIp}
-                  className="flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-red-600 bg-red-700 text-white hover:bg-red-800"
                   disabled={!selectedConfession.ipAddress || banLoading}
                   title={
                     selectedConfession.ipAddress
                       ? "Ban this user's IP"
                       : "No IP address to ban"
                   }
-                  style={{ minWidth: 120 }}
+                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-red-700 border border-red-600 text-white hover:bg-red-800 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-50"
                 >
-                  <span role="img" aria-label="ban">
-                    🚫
-                  </span>
-                  {banLoading ? "Please wait..." : "Ban User"}
+                  🚫 {banLoading ? "Please wait..." : "Ban User"}
                 </button>
               )}
             </div>
@@ -1201,18 +1187,30 @@ export default function AdminPage() {
       </main>
 
       {/* Stats Bar */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 py-2 px-4 flex justify-between text-sm">
-        <div className="text-gray-400">{confessions.length} confessions</div>
-        <div className="text-gray-400">
-          {confessions.filter((c) => c.status === "not-opened").length} not
-          opened
-        </div>
-        <div className="text-gray-400">
-          {confessions.filter((c) => c.status === "shared").length} shared
-        </div>
-        <div className="text-gray-400">
-          {confessions.filter((c) => c.reported && c.reports > 0).length}{" "}
-          reported
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-black via-gray-900 to-black border-t border-white/10 px-4 py-2">
+        <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-300 text-center">
+          <div className="flex-1 min-w-[120px]">
+            <span className="font-semibold">{confessions.length}</span>{" "}
+            Confessions
+          </div>
+          <div className="flex-1 min-w-[120px]">
+            <span className="font-semibold">
+              {confessions.filter((c) => c.status === "not-opened").length}
+            </span>{" "}
+            Not Opened
+          </div>
+          <div className="flex-1 min-w-[120px]">
+            <span className="font-semibold">
+              {confessions.filter((c) => c.status === "shared").length}
+            </span>{" "}
+            Shared
+          </div>
+          <div className="flex-1 min-w-[120px]">
+            <span className="font-semibold">
+              {confessions.filter((c) => c.reported && c.reports > 0).length}
+            </span>{" "}
+            Reported
+          </div>
         </div>
       </div>
 
