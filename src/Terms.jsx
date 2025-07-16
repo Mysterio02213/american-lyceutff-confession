@@ -89,6 +89,22 @@ export default function TermsPage() {
 
             <section>
               <h2 className="text-base sm:text-lg md:text-xl font-bold mb-2 text-white flex items-center gap-2">
+                <FaUserSecret className="text-pink-400" /> 3a. Identity
+                Disclosure (Optional)
+              </h2>
+              <p>
+                3a.1 If you choose to reveal your Instagram username, you confirm
+                its accuracy and accept full responsibility for any consequences.
+              </p>
+              <p>
+                3a.2 Once your confession is posted, your identity cannot be
+                removed or hidden. The platform is not responsible for any
+                outcomes resulting from identity disclosure.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-base sm:text-lg md:text-xl font-bold mb-2 text-white flex items-center gap-2">
                 <FaGavel className="text-yellow-400" /> 4. Moderation and
                 Reporting
               </h2>

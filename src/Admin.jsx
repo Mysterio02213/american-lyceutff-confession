@@ -515,7 +515,11 @@ export default function AdminPage() {
                 onClick={() => setShowBannedTab((v) => !v)}
                 className={`
                   p-2 rounded-full border border-gray-700 bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-red-400 focus:outline-none transition
-                  ${showBannedTab ? "bg-red-950 text-red-400 border-red-400 shadow" : ""}
+                  ${
+                    showBannedTab
+                      ? "bg-red-950 text-red-400 border-red-400 shadow"
+                      : ""
+                  }
                 `}
                 title="Banned Users"
                 type="button"
@@ -624,7 +628,8 @@ export default function AdminPage() {
                       </div>
                       {ban.reason && (
                         <div className="text-xs text-red-200 mt-1">
-                          <span className="font-semibold">Reason:</span> {ban.reason}
+                          <span className="font-semibold">Reason:</span>{" "}
+                          {ban.reason}
                         </div>
                       )}
                     </div>
@@ -733,7 +738,16 @@ export default function AdminPage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 relative min-w-0">
+      <main
+        className="flex-1 flex flex-col items-center justify-center p-6 relative min-w-0"
+        style={{
+          background: selectedConfession?.customColor
+            ? `linear-gradient(120deg, ${selectedConfession.customColor}22 0%, #fff 100%)`
+            : "linear-gradient(120deg, #111 0%, #fff 100%)",
+          minHeight: "100vh",
+          transition: "background 0.7s",
+        }}
+      >
         {selectedConfession ? (
           <>
             {/* Report Info Tab/Button */}
@@ -808,225 +822,206 @@ export default function AdminPage() {
             {/* Confession Box */}
             <div
               ref={confessionRef}
-              className="relative rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/10 overflow-hidden backdrop-blur"
+              className="relative w-full max-w-2xl mx-auto px-0 md:px-8"
               style={{
-                width: "min(90vw, 500px)",
-                boxSizing: "border-box",
-                background: "linear-gradient(145deg, #1f1f1f, #2c2c2c)",
+                padding: "0",
+                margin: "0 auto",
+                zIndex: 2,
               }}
             >
-              {/* Header */}
               <div
-                className="py-4 px-6 font-bold text-center text-xl border-b border-gray-700 bg-gradient-to-r from-white to-gray-200 text-black shadow-inner"
-                style={
-                  selectedConfession.customColor
-                    ? (() => {
-                        // Utility to get luminance of a hex color
-                        function hexToRgb(hex) {
-                          let c = hex.replace("#", "");
-                          if (c.length === 3)
-                            c = c
-                              .split("")
-                              .map((x) => x + x)
-                              .join("");
-                          const num = parseInt(c, 16);
-                          return [num >> 16, (num >> 8) & 255, num & 255];
-                        }
-                        function luminance([r, g, b]) {
-                          const a = [r, g, b].map((v) => {
-                            v /= 255;
-                            return v <= 0.03928
-                              ? v / 12.92
-                              : Math.pow((v + 0.055) / 1.055, 2.4);
-                          });
-                          return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
-                        }
-                        // Get background and intended text color
-                        const bg = selectedConfession.customColor;
-                        const bgRgb = hexToRgb(bg);
-                        const bgLum = luminance(bgRgb);
-                        // Use white text if background is dark, black if light
-                        const textColor = bgLum < 0.5 ? "#fff" : "#111";
-                        // If text color and bg are too close, add strong shadow
-                        const contrast = Math.abs(
-                          bgLum - (textColor === "#fff" ? 1 : 0)
-                        );
-                        const textShadow =
-                          contrast < 0.35
-                            ? "0 2px 12px #000, 0 0 2px #fff"
-                            : textColor === "#fff"
-                            ? "0 1px 8px rgba(0,0,0,0.25)"
-                            : "0 1px 8px rgba(255,255,255,0.25)";
-                        return {
-                          background: bg,
-                          color: textColor,
-                          borderBottom: "2px solid #fff",
-                          textShadow,
-                          transition: "background 0.3s",
-                        };
-                      })()
-                    : {}
-                }
+                className="rounded-2xl shadow-2xl border confession-glass"
+                style={{
+                  border: "4px solid",
+                  borderColor: selectedConfession?.customColor
+                    ? selectedConfession.customColor
+                    : "#111",
+                  background: selectedConfession?.customColor
+                    ? `linear-gradient(120deg, ${selectedConfession.customColor}cc 0%, ${selectedConfession.customColor}99 100%)`
+                    : "#fff",
+                  color: selectedConfession?.customColor ? "#fff" : "#111",
+                  boxShadow: selectedConfession?.customColor
+                    ? `0 8px 32px 0 ${selectedConfession.customColor}33`
+                    : "0 8px 32px 0 #1112",
+                  backdropFilter: "blur(12px)",
+                  transition: "box-shadow 0.3s, border 0.3s, background 0.3s",
+                  position: "relative",
+                  overflow: "hidden",
+                  borderRadius: "1.25rem",
+                }}
               >
-                ANONYMOUS CONFESSION
-              </div>
-
-              {/* Message */}
-              <div
-                className={`relative p-6 text-white text-center font-bold whitespace-pre-wrap break-words bg-gradient-to-br from-black via-gray-900 to-gray-800 ${
-                  forceFullConfession
-                    ? ""
-                    : "max-h-[60vh] sm:max-h-[400px] overflow-y-auto"
-                }`}
-              >
-                {isEditing ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <textarea
-                      className="w-full min-h-[120px] p-3 rounded-lg bg-gray-900 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      value={editMessage}
-                      onChange={(e) => setEditMessage(e.target.value)}
-                      maxLength={1100}
-                    />
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white font-semibold transition"
-                        onClick={async () => {
-                          await updateDoc(
-                            doc(db, "messages", selectedConfession.id),
-                            {
-                              message: editMessage,
-                            }
-                          );
-                          setConfessions((prev) =>
-                            prev.map((c) =>
-                              c.id === selectedConfession.id
-                                ? { ...c, message: editMessage }
-                                : c
-                            )
-                          );
-                          setSelectedConfession({
-                            ...selectedConfession,
-                            message: editMessage,
-                          });
-                          setIsEditing(false);
-                          toast.success("Confession updated!");
+                {/* Header */}
+                <div
+                  className="py-7 px-10 font-extrabold text-center text-3xl border-b"
+                  style={{
+                    borderColor: "transparent",
+                    color: selectedConfession?.customColor ? "#fff" : "#111",
+                    fontFamily: "Montserrat, Arial, sans-serif",
+                    letterSpacing: "0.08em",
+                    background: selectedConfession?.customColor
+                      ? `linear-gradient(90deg, ${selectedConfession.customColor} 0%, ${selectedConfession.customColor}bb 100%)`
+                      : "#f3f4f6",
+                    textShadow: selectedConfession?.customColor
+                      ? "0 2px 16px #000a"
+                      : "none",
+                    borderTopLeftRadius: "1.25rem",
+                    borderTopRightRadius: "1.25rem",
+                    boxShadow: selectedConfession?.customColor
+                      ? `0 2px 16px ${selectedConfession.customColor}33`
+                      : "0 2px 16px #1112",
+                  }}
+                >
+                  ANONYMOUS CONFESSION
+                </div>
+                {/* Message */}
+                <div
+                  className="relative p-10 text-center font-semibold whitespace-pre-wrap break-words"
+                  style={{
+                    color: selectedConfession?.customColor ? "#fff" : "#111",
+                    fontSize: "1.25rem",
+                    textShadow: selectedConfession?.customColor
+                      ? "0 2px 12px #000c"
+                      : "none",
+                    background: selectedConfession?.customColor
+                      ? "transparent"
+                      : "#fff",
+                    minHeight: "120px",
+                    fontFamily: "Inter, Arial, sans-serif",
+                    lineHeight: "1.7",
+                  }}
+                >
+                  {isEditing ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <textarea
+                        className="w-full min-h-[120px] p-4 rounded-xl bg-black/70 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        value={editMessage}
+                        onChange={(e) => setEditMessage(e.target.value)}
+                        maxLength={1100}
+                        style={{
+                          fontSize: "1.1rem",
+                          fontFamily: "Inter, Arial, sans-serif",
+                          boxShadow: "0 2px 12px #0008",
                         }}
-                      >
-                        Save
-                      </button>
-                      <button
-                        className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-800 text-white font-semibold transition"
-                        onClick={() => {
-                          setIsEditing(false);
-                          setEditMessage(selectedConfession.message);
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-lg leading-relaxed text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.25)]">
-                    {forceFullConfession ? (
-                      selectedConfession.message
-                    ) : (
-                      <TruncatedConfession
-                        text={selectedConfession.message}
-                        maxLength={200}
                       />
-                    )}
-                  </p>
-                )}
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          className="px-5 py-2 rounded-xl bg-gradient-to-br from-blue-500 via-blue-700 to-blue-900 text-white font-bold shadow-lg hover:from-blue-600 hover:to-blue-800 transition"
+                          onClick={async () => {
+                            await updateDoc(
+                              doc(db, "messages", selectedConfession.id),
+                              {
+                                message: editMessage,
+                              }
+                            );
+                            setConfessions((prev) =>
+                              prev.map((c) =>
+                                c.id === selectedConfession.id
+                                  ? { ...c, message: editMessage }
+                                  : c
+                              )
+                            );
+                            setSelectedConfession({
+                              ...selectedConfession,
+                              message: editMessage,
+                            });
+                            setIsEditing(false);
+                            toast.success("Confession updated!");
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="px-5 py-2 rounded-xl bg-gray-700 hover:bg-gray-800 text-white font-bold shadow-lg transition"
+                          onClick={() => {
+                            setIsEditing(false);
+                            setEditMessage(selectedConfession.message);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xl leading-relaxed">
+                        {forceFullConfession ? (
+                          selectedConfession.message
+                        ) : (
+                          <TruncatedConfession
+                            text={selectedConfession.message}
+                            maxLength={200}
+                          />
+                        )}
+                      </p>
+                      {/* Instagram Username Info */}
+                      {selectedConfession.instagramUsername &&
+                        selectedConfession.identityConfirmed && (
+                          <div
+                            className="mt-6 text-base text-center font-semibold text-gray-200"
+                            style={{
+                              fontWeight: 500,
+                              letterSpacing: "0.02em",
+                              textShadow: "0 1px 8px #0004, 1px 1px 0 #222",
+                            }}
+                          >
+                            Sent by:{" "}
+                            {isEditing || forceFullConfession ? (
+                              `@${selectedConfession.instagramUsername}`
+                            ) : (
+                              <a
+                                href={`https://instagram.com/${selectedConfession.instagramUsername}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:text-blue-400 transition"
+                                style={{
+                                  textShadow: "0 1px 8px #0004, 1px 1px 0 #222",
+                                }}
+                              >
+                                @{selectedConfession.instagramUsername}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                    </>
+                  )}
 
-                {/* Edit button: only show when not editing and not saving image */}
-                {!isEditing && !forceFullConfession && (
-                  <button
-                    className="absolute top-3 right-3 p-2 rounded-full bg-white hover:bg-gray-200 border border-gray-400 shadow-lg focus:outline-none transition z-10"
-                    style={{ boxShadow: "0 2px 8px 0 #0006" }}
-                    onClick={() => {
-                      setIsEditing(true);
-                      setEditMessage(selectedConfession.message);
-                    }}
-                    title="Edit confession"
-                    aria-label="Edit confession"
-                  >
-                    <Pencil className="w-5 h-5 text-black" />
-                  </button>
-                )}
-              </div>
-
-              {/* Timestamp */}
-              <div className="py-4 px-6 text-gray-400 text-sm text-center border-t border-gray-700 bg-gradient-to-r from-gray-900 to-black">
-                {formatTimestamp(selectedConfession.createdAt)}
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="mt-8 flex flex-wrap justify-center gap-4">
-              <button
-                onClick={handleSaveImage}
-                className="flex items-center gap-2 bg-white text-black font-medium px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-all border border-white"
-              >
-                <Download size={18} />
-                Save as Image
-              </button>
-              <button
-                onClick={handleDeleteClick}
-                className={`flex items-center gap-2 bg-black text-white font-medium px-5 py-2.5 rounded-lg hover:bg-gray-800 transition-all border border-gray-600
-                  ${
-                    deleteConfirm
-                      ? "border-red-500 bg-red-900 text-red-200"
-                      : ""
-                  }
-                `}
-              >
-                <Trash2 size={18} />
-                {deleteConfirm ? "Confirm?" : "Delete"}
-              </button>
-              <button
-                onClick={handleMarkAsShared}
-                disabled={selectedConfession.status === "shared"}
-                className={`flex items-center gap-2 font-medium px-5 py-2.5 rounded-lg transition-all border
-                  ${
-                    selectedConfession.status === "shared"
-                      ? "bg-green-700 text-white border-green-400 cursor-not-allowed opacity-60"
-                      : "bg-green-500 text-white border-green-600 hover:bg-green-600"
-                  }
-                `}
-              >
-                <Check size={18} />
-                {selectedConfession.status === "shared"
-                  ? "Marked as Shared"
-                  : "Mark as Shared"}
-              </button>
-              {/* Ban/Unban Button */}
-              {isSelectedBanned ? (
-                <button
-                  onClick={handleUnbanSelectedIp}
-                  className="flex items-center gap-2 bg-gradient-to-br from-green-700 via-green-900 to-black text-white font-medium px-5 py-2.5 rounded-lg border border-green-400 hover:bg-green-800 transition-all"
-                  disabled={!selectedConfession.ipAddress || unbanLoading}
-                  title="Unban this user's IP"
+                  {/* Edit button: only show when not editing and not saving image */}
+                  {!isEditing && !forceFullConfession && (
+                    <button
+                      className="absolute top-4 right-4 p-3 rounded-full bg-white/90 hover:bg-blue-100 border border-gray-400 shadow-lg focus:outline-none transition z-10"
+                      style={{ boxShadow: "0 2px 12px 0 #0008" }}
+                      onClick={() => {
+                        setIsEditing(true);
+                        setEditMessage(selectedConfession.message);
+                      }}
+                      title="Edit confession"
+                      aria-label="Edit confession"
+                    >
+                      <Pencil className="w-5 h-5 text-blue-700" />
+                    </button>
+                  )}
+                </div>
+                {/* Timestamp */}
+                <div
+                  className="py-4 px-8 text-base text-center border-t"
+                  style={{
+                    fontWeight: 500,
+                    letterSpacing: "0.02em",
+                    borderBottomLeftRadius: "1.25rem",
+                    borderBottomRightRadius: "1.25rem",
+                    background: selectedConfession?.customColor
+                      ? `${selectedConfession.customColor}cc`
+                      : "#f3f4f6",
+                    color: selectedConfession?.customColor ? "#fff" : "#111",
+                    fontFamily: "Inter, Arial, sans-serif",
+                    textShadow: selectedConfession?.customColor
+                      ? "0 1px 8px #0004"
+                      : "none",
+                  }}
                 >
-                  <Undo2 className="w-5 h-5" />
-                  {unbanLoading ? "Please wait..." : "Unban User"}
-                </button>
-              ) : (
-                <button
-                  onClick={handleBanIp}
-                  className="flex items-center gap-2 bg-gradient-to-br from-red-700 via-red-900 to-black text-white font-medium px-5 py-2.5 rounded-lg border border-red-400 hover:bg-red-800 transition-all"
-                  disabled={!selectedConfession.ipAddress || banLoading}
-                  title={
-                    selectedConfession.ipAddress
-                      ? "Ban this user's IP"
-                      : "No IP address to ban"
-                  }
-                >
-                  <span role="img" aria-label="ban">
-                    🚫
-                  </span>
-                  {banLoading ? "Please wait..." : "Ban User"}
-                </button>
-              )}
+                  {formatTimestamp(selectedConfession.createdAt)}
+                </div>
+              </div>
             </div>
           </>
         ) : (
@@ -1090,27 +1085,101 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+        {selectedConfession && (
+          <div className="w-full flex justify-center mt-6 md:mt-10">
+            <div
+              className="flex flex-row flex-wrap justify-center items-center gap-3 px-0 py-0"
+              style={{
+                width: "100%",
+                maxWidth: "540px",
+                position: "relative",
+                zIndex: 2,
+                margin: "0 auto",
+              }}
+            >
+              <button
+                onClick={handleSaveImage}
+                className="flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-gray-300 bg-white text-black hover:bg-gray-100 w-full sm:w-auto"
+                style={{ minWidth: 120 }}
+              >
+                <Download size={18} />
+                Save as Image
+              </button>
+              <button
+                onClick={handleDeleteClick}
+                className={`flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-red-700 bg-red-900 text-white hover:bg-red-800 w-full sm:w-auto
+        ${deleteConfirm ? "border-red-500 bg-red-700" : ""}
+      `}
+                style={{ minWidth: 120 }}
+              >
+                <Trash2 size={18} />
+                {deleteConfirm ? "Confirm?" : "Delete"}
+              </button>
+              <button
+                onClick={handleMarkAsShared}
+                disabled={selectedConfession.status === "shared"}
+                className={`flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-green-600 bg-green-700 text-white hover:bg-green-800 w-full sm:w-auto
+        ${
+          selectedConfession.status === "shared"
+            ? "opacity-60 cursor-not-allowed"
+            : ""
+        }
+      `}
+                style={{ minWidth: 120 }}
+              >
+                <Check size={18} />
+                {selectedConfession.status === "shared"
+                  ? "Marked as Shared"
+                  : "Mark as Shared"}
+              </button>
+              {isSelectedBanned ? (
+                <button
+                  onClick={handleUnbanSelectedIp}
+                  className="flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-green-600 bg-green-700 text-white hover:bg-green-800"
+                  disabled={!selectedConfession.ipAddress || unbanLoading}
+                  title="Unban this user's IP"
+                  style={{ minWidth: 120 }}
+                >
+                  <Undo2 className="w-5 h-5" />
+                  {unbanLoading ? "Please wait..." : "Unban User"}
+                </button>
+              ) : (
+                <button
+                  onClick={handleBanIp}
+                  className="flex items-center gap-2 font-medium px-4 py-2 rounded-full shadow transition-all border border-red-600 bg-red-700 text-white hover:bg-red-800"
+                  disabled={!selectedConfession.ipAddress || banLoading}
+                  title={
+                    selectedConfession.ipAddress
+                      ? "Ban this user's IP"
+                      : "No IP address to ban"
+                  }
+                  style={{ minWidth: 120 }}
+                >
+                  <span role="img" aria-label="ban">
+                    🚫
+                  </span>
+                  {banLoading ? "Please wait..." : "Ban User"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Stats Bar */}
       <div className="absolute bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 py-2 px-4 flex justify-between text-sm">
+        <div className="text-gray-400">{confessions.length} confessions</div>
         <div className="text-gray-400">
-          Total: {confessions.length} confessions
+          {confessions.filter((c) => c.status === "not-opened").length} not
+          opened
         </div>
-        <div className="flex gap-4">
-          <div className="flex items-center gap-1">
-            <span className="w-3 h-3 bg-white rounded-full"></span>
-            New: {confessions.filter((c) => c.status === "not-opened").length}
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-3 h-3 bg-gray-600 rounded-full"></span>
-            Viewed:{" "}
-            {
-              confessions.filter(
-                (c) => c.status === "opened" || c.status === "shared"
-              ).length
-            }
-          </div>
+        <div className="text-gray-400">
+          {confessions.filter((c) => c.status === "shared").length} shared
+        </div>
+        <div className="text-gray-400">
+          {confessions.filter((c) => c.reported && c.reports > 0).length}{" "}
+          reported
         </div>
       </div>
 
@@ -1137,6 +1206,23 @@ export default function AdminPage() {
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
+        }
+        .confession-glass {
+          backdrop-filter: blur(14px);
+          border-radius: 1.25rem;
+          border: 4px solid transparent;
+          transition: box-shadow 0.3s, border 0.3s, background 0.3s;
+        }
+        @keyframes gradientBG {
+          0% {
+            background: linear-gradient(120deg, #232526 0%, #414345 100%);
+          }
+          50% {
+            background: linear-gradient(120deg, #232526 0%, #7f5fff 50%, #00c6ff 100%);
+          }
+          100% {
+            background: linear-gradient(120deg, #232526 0%, #414345 100%);
+          }
         }
       `}</style>
 

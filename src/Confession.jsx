@@ -30,6 +30,10 @@ export default function ConfessionPage() {
   const [customColor, setCustomColor] = useState("#ffffff");
   const [isBanned, setIsBanned] = useState(false);
   const [banReason, setBanReason] = useState(""); // <-- move here
+  const [showIdentity, setShowIdentity] = useState(false);
+  const [instagramUsername, setInstagramUsername] = useState("");
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
+  const [formError, setFormError] = useState(""); // Add this state
   const MAX_CHARS = 1100;
 
   useEffect(() => {
@@ -217,8 +221,20 @@ export default function ConfessionPage() {
     e.preventDefault();
     setCooldownError(false);
     setProfanityError(false);
+    setFormError(""); // Reset error
 
-    if (!message.trim() || !agreed) return;
+    if (!message.trim()) {
+      setFormError("Please enter your confession.");
+      return;
+    }
+    if (!agreed) {
+      setFormError("You must accept the Terms and Conditions.");
+      return;
+    }
+    if (showIdentity && (!instagramUsername.trim() || !identityConfirmed)) {
+      setFormError("Please enter your Instagram username and confirm it.");
+      return;
+    }
 
     // Check for profanity
     if (containsProfanity(message)) {
@@ -236,13 +252,21 @@ export default function ConfessionPage() {
 
     setLoading(true);
     try {
+      if (showIdentity && (!instagramUsername.trim() || !identityConfirmed)) {
+        setSuccess(false);
+        setShowFeedback(true);
+        return;
+      }
+
       await addDoc(collection(db, "messages"), {
         message,
         createdAt: Timestamp.now(),
         status: "not-opened",
         ipAddress: ip,
         deviceInfo,
-        customColor: customColorEnabled ? customColor : null, // <-- Save color if enabled
+        customColor: customColorEnabled ? customColor : null,
+        instagramUsername: showIdentity ? instagramUsername.trim() : null,
+        identityConfirmed: showIdentity ? identityConfirmed : false,
       });
       await sendToDiscord(message);
       localStorage.setItem("lastConfessionTime", now.toString());
@@ -251,6 +275,9 @@ export default function ConfessionPage() {
       setAgreed(false);
       setCustomColorEnabled(false);
       setCustomColor("#ffffff");
+      setShowIdentity(false);
+      setInstagramUsername("");
+      setIdentityConfirmed(false);
     } catch (err) {
       console.error("Error:", err);
       setSuccess(false);
@@ -420,7 +447,51 @@ export default function ConfessionPage() {
                 </div>
               </div>
             )}
-
+            {/* Instagram Username Option */}
+            <div className="flex items-center gap-3 mb-2 p-3 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-xl border border-white/10 shadow transition-all duration-300 hover:border-white/30 hover:shadow-lg">
+              <input
+                type="checkbox"
+                id="showIdentity"
+                checked={showIdentity}
+                onChange={(e) => setShowIdentity(e.target.checked)}
+                className="accent-white scale-110 sm:scale-125 mt-1 transition-all duration-200"
+              />
+              <label
+                htmlFor="showIdentity"
+                className="text-gray-300 text-xs sm:text-sm cursor-pointer"
+              >
+                <span className="font-semibold text-white mb-1 tracking-wide">
+                  Show My Identity
+                </span>
+                <span className="block text-gray-400">
+                  Add your Instagram username to reveal your identity (optional)
+                </span>
+              </label>
+            </div>
+            {showIdentity && (
+              <div className="flex flex-col gap-2 mt-2 mb-2 p-3 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-xl border border-white/10 shadow">
+                <input
+                  type="text"
+                  placeholder="Enter your Instagram username"
+                  value={instagramUsername}
+                  onChange={(e) => setInstagramUsername(e.target.value)}
+                  className="bg-gray-900 border border-white/10 rounded px-2 py-1 text-xs text-white font-mono w-full focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+                  maxLength={40}
+                  autoFocus
+                />
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={identityConfirmed}
+                    onChange={(e) => setIdentityConfirmed(e.target.checked)}
+                    className="accent-white scale-110 sm:scale-125 mt-1 transition-all duration-200"
+                  />
+                  <span className="text-gray-300 text-xs">
+                    I confirm my username is accurate.
+                  </span>
+                </label>
+              </div>
+            )}
             {/* Agreement checkbox */}
             <div className="flex items-start gap-3 sm:gap-4 p-3 sm:p-5 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-xl sm:rounded-2xl border border-white/10 shadow group transition-all duration-300 hover:border-white/30 hover:shadow-lg">
               <input
@@ -496,6 +567,11 @@ export default function ConfessionPage() {
 
           {/* Feedback messages */}
           <div className="px-4 sm:px-8 md:px-12 pb-6 sm:pb-8 space-y-2 sm:space-y-3">
+            {formError && (
+              <div className="p-3 rounded-lg bg-red-900/80 border border-red-400/30 text-red-200 font-semibold text-sm text-center mb-2">
+                {formError}
+              </div>
+            )}
             {success === true && (
               <div
                 className={`p-3 sm:p-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-green-700/20 via-green-900/30 to-black/10 border border-green-400/30 transition-opacity duration-500 ${
