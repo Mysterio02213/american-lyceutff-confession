@@ -32,6 +32,9 @@ import {
   Ban,
   Undo2,
   ShieldX,
+  MessageSquare,
+  ChevronDown,
+  Users,
 } from "lucide-react";
 
 function TruncatedConfession({ text, maxLength = 200 }) {
@@ -77,6 +80,15 @@ function getContrastMutedColor(hex) {
   return getContrastTextColor(hex) === "#111111"
     ? "rgba(17,17,17,0.65)"
     : "rgba(255,255,255,0.75)";
+}
+
+// Text shadow that boosts legibility in the direction the text actually
+// needs it: a soft light halo behind dark text (light custom colors like
+// white/yellow), or a soft dark halo behind light text (dark custom colors).
+function getContrastTextShadow(hex) {
+  return getContrastTextColor(hex) === "#111111"
+    ? "0 1px 3px rgba(255,255,255,0.8), 0 1px 1px rgba(255,255,255,0.6)"
+    : "0 2px 10px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.5)";
 }
 
 function timeAgo(timestamp) {
@@ -356,6 +368,20 @@ async function renderConfessionCard(confession) {
   return canvas;
 }
 
+const STATUS_FILTER_OPTIONS = [
+  { value: "not-opened", label: "Not Opened" },
+  { value: "opened", label: "Opened" },
+  { value: "shared", label: "Shared" },
+  { value: "reported", label: "Reported" },
+];
+
+function matchesStatusFilter(confession, value) {
+  if (value === "reported") {
+    return !!(confession.reported && confession.reports > 0);
+  }
+  return confession.status === value;
+}
+
 function DeviceInfoLine({ info }) {
   if (!info) return null;
   const parts = info.split(" | ");
@@ -400,9 +426,13 @@ export default function AdminPage() {
   const [selectedConfession, setSelectedConfession] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilters, setStatusFilters] = useState([]); // [] means "show all"
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterDropdownRef = useRef(null);
+  // When set, the sidebar narrows down to every confession sent from this
+  // same IP address — lets admins see everything a given (anonymous) user
+  // has submitted, since IP is the only reliable link between confessions.
+  const [userFilterIp, setUserFilterIp] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const deleteTimeoutRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -575,18 +605,38 @@ export default function AdminPage() {
   };
 
   const filteredConfessions = confessions
+    .filter((confession) =>
+      userFilterIp ? confession.ipAddress === userFilterIp : true,
+    )
     .filter(
       (confession) =>
         confession.message?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         confession.ipAddress?.includes(searchTerm),
     )
     .filter((confession) => {
-      if (statusFilter === "all") return true;
-      if (statusFilter === "reported") {
-        return confession.reported && confession.reports > 0;
-      }
-      return confession.status === statusFilter;
+      if (statusFilters.length === 0) return true; // no filters = show all
+      return statusFilters.some((value) =>
+        matchesStatusFilter(confession, value),
+      );
     });
+
+  const toggleStatusFilter = (value) => {
+    setStatusFilters((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+    );
+  };
+
+  // Jump into "this user's confessions" mode from the detail view.
+  const handleFilterByUser = (ip) => {
+    if (!ip) return;
+    setShowBannedTab(false);
+    setSearchTerm("");
+    setStatusFilters([]);
+    setUserFilterIp(ip);
+    setSidebarOpen(true);
+  };
+
+  const clearUserFilter = () => setUserFilterIp(null);
 
   useEffect(() => {
     if (!showFilterDropdown) return;
@@ -603,6 +653,7 @@ export default function AdminPage() {
   }, [showFilterDropdown]);
 
   const sidebarRef = useRef(null);
+
   useEffect(() => {
     if (!sidebarOpen) return;
     const handler = (e) => {
@@ -772,7 +823,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-black text-white">
+    <div className="h-screen flex flex-col bg-black text-white overflow-hidden">
       <Toaster
         position="top-center"
         reverseOrder={false}
@@ -785,42 +836,61 @@ export default function AdminPage() {
         }}
       />
 
+      {/* Mobile sidebar toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden absolute top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg focus:outline-none sidebar-toggle-btn"
+        className="md:hidden fixed top-4 left-4 z-50 p-2.5 bg-gray-800/95 backdrop-blur border border-gray-700 text-white rounded-xl shadow-lg focus:outline-none sidebar-toggle-btn"
       >
-        {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
       </button>
 
-      {/* Sidebar */}
-      <aside
-        ref={sidebarRef}
-        className={`
-        fixed md:static top-0 left-0 h-[calc(100vh-36px)] w-64 md:w-80 bg-gray-900 border-r border-gray-700 p-5 pt-20 md:pt-5 z-40 transform transition-transform duration-300
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        flex-shrink-0
-      `}
-        style={{ minWidth: 0 }}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white">Confessions</h2>
-            {confessions.filter((c) => c.status === "not-opened").length >
-              0 && (
-              <span
-                className="bg-white text-black text-xs font-bold rounded-full px-2 py-0.5"
-                title="Not opened yet"
-              >
-                {confessions.filter((c) => c.status === "not-opened").length}{" "}
-                new
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <button
-                onClick={() => setShowBannedTab((v) => !v)}
-                className={`
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="md:hidden fixed inset-0 z-30 bg-black/70 backdrop-blur-sm"
+        />
+      )}
+
+      <div className="flex-1 flex min-h-0">
+        {/* Sidebar */}
+        <aside
+          ref={sidebarRef}
+          className={`
+          fixed md:static inset-y-0 left-0 md:inset-auto
+          w-72 sm:w-80 md:w-80 h-full
+          bg-gray-900 border-r border-gray-800 shadow-2xl md:shadow-none
+          z-40 transform transition-transform duration-300 ease-out
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
+          flex-shrink-0 flex flex-col min-h-0
+        `}
+        >
+          <div className="flex-1 min-h-0 flex flex-col p-5 pt-20 md:pt-5">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-white">
+                  {userFilterIp ? "User's Confessions" : "Confessions"}
+                </h2>
+                {!userFilterIp &&
+                  confessions.filter((c) => c.status === "not-opened").length >
+                    0 && (
+                    <span
+                      className="bg-white text-black text-xs font-bold rounded-full px-2 py-0.5"
+                      title="Not opened yet"
+                    >
+                      {
+                        confessions.filter((c) => c.status === "not-opened")
+                          .length
+                      }{" "}
+                      new
+                    </span>
+                  )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowBannedTab((v) => !v)}
+                    className={`
                   p-2 rounded-full border border-gray-700 bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-red-400 focus:outline-none transition
                   ${
                     showBannedTab
@@ -828,194 +898,315 @@ export default function AdminPage() {
                       : ""
                   }
                 `}
-                title="Banned Users"
-                type="button"
-                aria-label="Banned Users"
-                style={{
-                  minWidth: 0,
-                  width: 38,
-                  height: 38,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  position: "relative",
-                }}
-              >
-                <ShieldX className="w-5 h-5" />
-                <span className="sr-only">Banned Users</span>
-                {bannedIps.length > 0 && (
-                  <span
-                    className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-xs font-bold rounded-full px-1.5 py-0.5 border-2 border-gray-900"
+                    title="Banned Users"
+                    type="button"
+                    aria-label="Banned Users"
                     style={{
-                      minWidth: 18,
-                      minHeight: 18,
+                      minWidth: 0,
+                      width: 38,
+                      height: 38,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 11,
+                      position: "relative",
                     }}
                   >
-                    {bannedIps.length}
-                  </span>
-                )}
-              </button>
-            </div>
-            <div className="relative" ref={filterDropdownRef}>
-              <button
-                onClick={() => setShowFilterDropdown((v) => !v)}
-                className={`flex items-center gap-1.5 p-2 rounded-lg border focus:outline-none transition ${
-                  statusFilter !== "all"
-                    ? "bg-white text-black border-white"
-                    : "bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800"
-                }`}
-                title={
-                  statusFilter === "all"
-                    ? "Filter confessions"
-                    : `Filtering: ${statusFilter}`
-                }
-                type="button"
-              >
-                <Filter size={18} />
-                {statusFilter !== "all" && (
-                  <span className="text-xs font-semibold capitalize pr-0.5">
-                    {statusFilter}
-                  </span>
-                )}
-              </button>
-              {showFilterDropdown && (
-                <div className="absolute right-0 mt-2 z-20">
-                  <select
-                    autoFocus
-                    value={statusFilter}
-                    onChange={(e) => {
-                      setStatusFilter(e.target.value);
-                      setShowFilterDropdown(false); // Close after selection
-                    }}
-                    className="bg-black border border-gray-700 text-white rounded-lg px-3 py-2 text-sm shadow-lg focus:outline-none"
-                    style={{
-                      minWidth: 140,
-                      border: "1px solid #444",
-                    }}
-                  >
-                    <option value="all">All</option>
-                    <option value="not-opened">Not Opened</option>
-                    <option value="opened">Opened</option>
-                    <option value="shared">Shared</option>
-                    <option value="reported">Reported</option>
-                  </select>
+                    <ShieldX className="w-5 h-5" />
+                    <span className="sr-only">Banned Users</span>
+                    {bannedIps.length > 0 && (
+                      <span
+                        className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-xs font-bold rounded-full px-1.5 py-0.5 border-2 border-gray-900"
+                        style={{
+                          minWidth: 18,
+                          minHeight: 18,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                        }}
+                      >
+                        {bannedIps.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Banned Users Tab */}
-        {showBannedTab ? (
-          <div
-            className="overflow-auto space-y-2 max-h-[70vh] pr-1 custom-scrollbar flex flex-col"
-            style={{
-              minHeight: "200px",
-              maxHeight: "calc(100vh - 120px)",
-              width: "100%",
-            }}
-          >
-            <h3 className="text-lg font-bold text-red-300 mb-2 flex items-center gap-2">
-              <Ban className="w-5 h-5" /> Banned Users
-            </h3>
-            {bannedIps.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No banned users
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3 w-full">
-                {bannedIps.map((ban) => (
-                  <div
-                    key={ban.ip}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-red-900/60 border border-red-400 rounded-xl px-4 py-3 text-sm text-red-200 w-full"
+                <div className="relative" ref={filterDropdownRef}>
+                  <button
+                    onClick={() => setShowFilterDropdown((v) => !v)}
+                    className={`flex items-center gap-1.5 p-2 rounded-lg border focus:outline-none transition ${
+                      statusFilters.length > 0
+                        ? "bg-white text-black border-white"
+                        : "bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800"
+                    }`}
+                    title={
+                      statusFilters.length === 0
+                        ? "Filter confessions"
+                        : `Filtering: ${statusFilters
+                            .map(
+                              (v) =>
+                                STATUS_FILTER_OPTIONS.find((o) => o.value === v)
+                                  ?.label,
+                            )
+                            .join(", ")}`
+                    }
+                    type="button"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="font-mono text-xs break-all">
-                        {ban.ip}
-                      </div>
-                      <div className="text-xs text-gray-300">
-                        {ban.bannedAt
-                          ? new Date(
-                              ban.bannedAt.seconds
-                                ? ban.bannedAt.seconds * 1000
-                                : ban.bannedAt,
-                            ).toLocaleString()
-                          : ""}
-                      </div>
-                      {ban.reason && (
-                        <div className="text-xs text-red-200 mt-1">
-                          <span className="font-semibold">Reason:</span>{" "}
-                          {ban.reason}
+                    <Filter size={18} />
+                    {statusFilters.length > 0 && (
+                      <span className="text-xs font-semibold pr-0.5 flex items-center gap-1">
+                        {statusFilters.length === 1
+                          ? STATUS_FILTER_OPTIONS.find(
+                              (o) => o.value === statusFilters[0],
+                            )?.label
+                          : `${statusFilters.length} filters`}
+                      </span>
+                    )}
+                  </button>
+                  {showFilterDropdown && (
+                    <div className="absolute right-0 mt-2 z-20 w-64 rounded-xl border border-gray-700 bg-black shadow-2xl p-3">
+                      <div className="flex items-center justify-between mb-2 px-1">
+                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                          Show confessions
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStatusFilters(
+                                STATUS_FILTER_OPTIONS.map((o) => o.value),
+                              )
+                            }
+                            className="text-[11px] text-gray-400 hover:text-white transition"
+                          >
+                            Select all
+                          </button>
+                          <span className="text-gray-700">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setStatusFilters([])}
+                            className="text-[11px] text-gray-400 hover:text-white transition"
+                          >
+                            Clear
+                          </button>
                         </div>
-                      )}
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        {STATUS_FILTER_OPTIONS.map((option) => {
+                          const count = confessions.filter((c) =>
+                            matchesStatusFilter(c, option.value),
+                          ).length;
+                          const checked = statusFilters.includes(option.value);
+                          return (
+                            <label
+                              key={option.value}
+                              className={`flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-pointer transition select-none ${
+                                checked ? "bg-white/10" : "hover:bg-white/5"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  toggleStatusFilter(option.value)
+                                }
+                                className="accent-white w-4 h-4 shrink-0"
+                              />
+                              <span className="flex-1 text-sm text-gray-200">
+                                {option.label}
+                              </span>
+                              <span className="text-[11px] text-gray-500 font-mono">
+                                {count}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-3 pt-2 border-t border-gray-800 flex items-center justify-between px-1">
+                        <span className="text-[11px] text-gray-500">
+                          {statusFilters.length === 0
+                            ? `Showing all ${confessions.length}`
+                            : `${filteredConfessions.length} match${
+                                filteredConfessions.length === 1 ? "" : "es"
+                              }`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowFilterDropdown(false)}
+                          className="text-[11px] font-semibold text-white bg-gray-800 hover:bg-gray-700 rounded-full px-3 py-1 transition"
+                        >
+                          Done
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleUnbanIp(ban.ip)}
-                      className="flex items-center gap-1 px-3 py-1 mt-2 sm:mt-0 sm:ml-4 rounded-lg bg-gradient-to-br from-green-700 via-green-900 to-black text-white border border-green-400 hover:bg-green-800 transition-all text-xs"
-                      disabled={unbanLoading}
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Active filter chips — quick visual summary + one-tap removal */}
+            {statusFilters.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 -mt-3 mb-4">
+                {statusFilters.map((value) => {
+                  const option = STATUS_FILTER_OPTIONS.find(
+                    (o) => o.value === value,
+                  );
+                  return (
+                    <span
+                      key={value}
+                      className="flex items-center gap-1 text-[11px] font-medium bg-white/10 text-gray-200 border border-white/10 rounded-full pl-2.5 pr-1.5 py-1"
                     >
-                      <Undo2 className="w-4 h-4" />
-                      {unbanLoading ? "Please wait..." : "Unban"}
-                    </button>
-                  </div>
-                ))}
+                      {option?.label}
+                      <button
+                        type="button"
+                        onClick={() => toggleStatusFilter(value)}
+                        className="hover:text-white text-gray-400 transition"
+                        aria-label={`Remove ${option?.label} filter`}
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             )}
-          </div>
-        ) : (
-          <>
-            {/* Search */}
-            <div className="relative mb-4">
-              <input
-                type="text"
-                placeholder="Search confessions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 pl-10 text-white focus:outline-none focus:ring-1 focus:ring-white"
-              />
-              <div className="absolute left-3 top-2.5 text-gray-400">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-2.5 text-gray-400 hover:text-white"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
 
-            <div className="overflow-auto space-y-2 max-h-[70vh] pr-1 custom-scrollbar">
-              {filteredConfessions.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No confessions found
+            {/* Active "this user's confessions" filter — dynamic, one click to clear */}
+            {userFilterIp && (
+              <div className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl border border-blue-400/30 bg-blue-500/10 text-blue-200">
+                <Users size={15} className="shrink-0" />
+                <div className="flex-1 min-w-0 text-xs leading-snug">
+                  <div className="font-semibold text-blue-100">
+                    Showing this user's confessions
+                  </div>
+                  <div className="font-mono text-[11px] text-blue-300/80 truncate">
+                    {userFilterIp} · {filteredConfessions.length} found
+                  </div>
                 </div>
-              ) : (
-                filteredConfessions.map((confession) => {
-                  const isSelected = selectedConfession?.id === confession.id;
-                  return (
-                    <div
-                      key={confession.id}
-                      onClick={() => handleSelect(confession)}
-                      className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border relative
+                <button
+                  type="button"
+                  onClick={clearUserFilter}
+                  className="shrink-0 p-1.5 rounded-full hover:bg-white/10 text-blue-300 hover:text-white transition"
+                  title="Clear filter"
+                  aria-label="Clear user filter"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* Banned Users Tab */}
+            {showBannedTab ? (
+              <div
+                className="flex-1 min-h-0 overflow-auto space-y-2 pr-1 custom-scrollbar flex flex-col"
+                style={{
+                  minHeight: "200px",
+                  width: "100%",
+                  paddingBottom: 16,
+                }}
+              >
+                <h3 className="text-lg font-bold text-red-300 mb-2 flex items-center gap-2">
+                  <Ban className="w-5 h-5" /> Banned Users
+                </h3>
+                {bannedIps.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No banned users
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3 w-full">
+                    {bannedIps.map((ban) => (
+                      <div
+                        key={ban.ip}
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-red-900/60 border border-red-400 rounded-xl px-4 py-3 text-sm text-red-200 w-full"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-mono text-xs break-all">
+                            {ban.ip}
+                          </div>
+                          <div className="text-xs text-gray-300">
+                            {ban.bannedAt
+                              ? new Date(
+                                  ban.bannedAt.seconds
+                                    ? ban.bannedAt.seconds * 1000
+                                    : ban.bannedAt,
+                                ).toLocaleString()
+                              : ""}
+                          </div>
+                          {ban.reason && (
+                            <div className="text-xs text-red-200 mt-1">
+                              <span className="font-semibold">Reason:</span>{" "}
+                              {ban.reason}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleUnbanIp(ban.ip)}
+                          className="flex items-center gap-1 px-3 py-1 mt-2 sm:mt-0 sm:ml-4 rounded-lg bg-gradient-to-br from-green-700 via-green-900 to-black text-white border border-green-400 hover:bg-green-800 transition-all text-xs"
+                          disabled={unbanLoading}
+                        >
+                          <Undo2 className="w-4 h-4" />
+                          {unbanLoading ? "Please wait..." : "Unban"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Search */}
+                <div className="relative mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search confessions..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-3 pl-10 text-white focus:outline-none focus:ring-1 focus:ring-white"
+                  />
+                  <div className="absolute left-3 top-2.5 text-gray-400">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-white"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  className="flex-1 min-h-0 overflow-auto space-y-2 pr-1 custom-scrollbar"
+                  style={{ paddingBottom: 16 }}
+                >
+                  {filteredConfessions.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No confessions found
+                    </div>
+                  ) : (
+                    filteredConfessions.map((confession) => {
+                      const isSelected =
+                        selectedConfession?.id === confession.id;
+                      return (
+                        <div
+                          key={confession.id}
+                          onClick={() => handleSelect(confession)}
+                          className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border relative
                 ${
                   isSelected
                     ? "bg-white text-black border-white"
@@ -1026,529 +1217,662 @@ export default function AdminPage() {
                         : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
                 }
               `}
-                      style={
-                        confession.customColor
-                          ? {
-                              borderLeft: `4px solid ${confession.customColor}`,
-                            }
-                          : undefined
-                      }
-                    >
-                      {/* Reported dot */}
-                      {confession.reported && (
-                        <span
-                          className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-black/40"
-                          title="Reported"
-                        ></span>
-                      )}
-                      <div className="mt-0.5 shrink-0 flex flex-col items-center gap-1.5">
-                        {confession.status === "not-opened" ? (
-                          <Eye className="w-4 h-4" />
-                        ) : confession.status === "shared" ? (
-                          <Check className="w-4 h-4 text-green-300" />
-                        ) : (
-                          <FileText className="w-4 h-4" />
-                        )}
-                        {confession.customColor && (
-                          <span
-                            className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
-                            style={{ background: confession.customColor }}
-                            title={`Custom color: ${confession.customColor}`}
-                          />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <div className="font-medium whitespace-pre-wrap break-words break-all max-w-full overflow-hidden line-clamp-2">
-                          {confession.message || "Confession"}
-                        </div>
-                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1.5">
-                          <span
-                            className="text-xs opacity-80"
-                            title={formatTimestamp(confession.createdAt)}
-                          >
-                            {timeAgo(confession.createdAt)}
-                          </span>
-                          {confession.instagramUsername &&
-                            confession.identityConfirmed && (
-                              <span
-                                className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
-                                  isSelected
-                                    ? "border-black/20 text-black/70"
-                                    : "border-white/20 text-gray-300"
-                                }`}
-                              >
-                                @{confession.instagramUsername}
-                              </span>
-                            )}
-                          {confession.status === "not-opened" && (
-                            <span
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                                isSelected
-                                  ? "bg-black/10 text-black"
-                                  : "bg-white/10 text-white"
-                              }`}
-                            >
-                              NEW
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </>
-        )}
-      </aside>
-
-      {/* Main Content */}
-      <main
-        className="flex-1 flex flex-col items-center justify-center p-6 relative min-w-0"
-        style={{
-          background: selectedConfession?.customColor
-            ? `linear-gradient(120deg, ${selectedConfession.customColor}22 0%, #fff 100%)`
-            : "linear-gradient(120deg, #111 0%, #fff 100%)",
-          minHeight: "100vh",
-          transition: "background 0.7s",
-        }}
-      >
-        {selectedConfession ? (
-          <>
-            {/* Report Info Tab/Button */}
-            {selectedConfession.reported && (
-              <div className="w-full max-w-md mx-auto mt-4 mb-2">
-                <details
-                  className="bg-red-900/80 border border-red-400 rounded-xl p-0 shadow group"
-                  open={false}
-                >
-                  <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none outline-none">
-                    <span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span>
-                    <span className="font-bold text-red-200 text-base">
-                      Report Info
-                    </span>
-                    <span className="ml-auto text-xs text-red-200">
-                      {selectedConfession.reports || 1} report
-                      {selectedConfession.reports > 1 ? "s" : ""}
-                    </span>
-                    <span className="ml-2 text-red-300 group-open:rotate-90 transition-transform">
-                      &#9654;
-                    </span>
-                  </summary>
-                  <div className="px-4 pb-4 pt-2 text-sm text-red-100">
-                    <span className="font-semibold">Reasons:</span>
-                    <ul className="list-disc ml-5 mt-1 space-y-1">
-                      {(selectedConfession.reportReasons || []).map(
-                        (reason, idx) => (
-                          <li key={idx} className="break-words">
-                            {reason}
-                          </li>
-                        ),
-                      )}
-                    </ul>
-                    <button
-                      onClick={async () => {
-                        await updateDoc(
-                          doc(db, "messages", selectedConfession.id),
-                          {
-                            reported: false,
-                            reports: 0,
-                            reportReasons: [],
-                          },
-                        );
-                        setConfessions((prev) =>
-                          prev.map((c) =>
-                            c.id === selectedConfession.id
+                          style={
+                            confession.customColor
                               ? {
-                                  ...c,
-                                  reported: false,
-                                  reports: 0,
-                                  reportReasons: [],
+                                  borderLeft: `4px solid ${confession.customColor}`,
                                 }
-                              : c,
-                          ),
-                        );
-                        setSelectedConfession({
-                          ...selectedConfession,
-                          reported: false,
-                          reports: 0,
-                          reportReasons: [],
-                        });
-                        toast.success("Report info cleared");
-                      }}
-                      className="mt-4 bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg font-semibold transition"
-                    >
-                      Clear Report Info
-                    </button>
-                  </div>
-                </details>
-              </div>
-            )}
-            {/* Confession Box */}
-            <div
-              className="relative w-full max-w-2xl mx-auto px-0 md:px-8"
-              style={{
-                padding: "0",
-                margin: "0 auto",
-                zIndex: 2,
-              }}
-            >
-              <div
-                className="shadow-2xl border confession-glass"
-                style={{
-                  border: "3px solid",
-                  borderColor: selectedConfession?.customColor
-                    ? selectedConfession.customColor
-                    : "#111",
-                  background: selectedConfession?.customColor
-                    ? `linear-gradient(120deg, ${selectedConfession.customColor}cc 0%, ${selectedConfession.customColor}99 100%)`
-                    : "#fff",
-                  color: selectedConfession?.customColor
-                    ? getContrastTextColor(selectedConfession.customColor)
-                    : "#111",
-                  boxShadow: selectedConfession?.customColor
-                    ? `0 8px 32px 0 ${selectedConfession.customColor}33`
-                    : "0 8px 32px 0 #1112",
-                  backdropFilter: "blur(12px)",
-                  transition: "box-shadow 0.3s, border 0.3s, background 0.3s",
-                  position: "relative",
-                  overflow: "hidden",
-                  borderRadius: "1rem",
-                  minWidth: "320px",
-                  maxWidth: "100%",
-                  width: "100%",
-                  minHeight: "220px",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                {/* Header */}
-                <div
-                  className="py-6 px-6 font-extrabold text-center text-2xl border-b"
-                  style={{
-                    borderColor: "transparent",
-                    color: selectedConfession?.customColor
-                      ? getContrastTextColor(selectedConfession.customColor)
-                      : "#111",
-                    fontFamily: "Montserrat, Arial, sans-serif",
-                    letterSpacing: "0.08em",
-                    background: selectedConfession?.customColor
-                      ? `linear-gradient(90deg, ${selectedConfession.customColor} 0%, ${selectedConfession.customColor}bb 100%)`
-                      : "#f3f4f6",
-                    textShadow: selectedConfession?.customColor
-                      ? "0 2px 16px #000a"
-                      : "none",
-                    borderTopLeftRadius: "1rem",
-                    borderTopRightRadius: "1rem",
-                    boxShadow: selectedConfession?.customColor
-                      ? `0 2px 16px ${selectedConfession.customColor}33`
-                      : "0 2px 16px #1112",
-                  }}
-                >
-                  ANONYMOUS CONFESSION
+                              : undefined
+                          }
+                        >
+                          {/* Reported dot */}
+                          {confession.reported && (
+                            <span
+                              className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-black/40"
+                              title="Reported"
+                            ></span>
+                          )}
+                          <div className="mt-0.5 shrink-0 flex flex-col items-center gap-1.5">
+                            {confession.status === "not-opened" ? (
+                              <Eye className="w-4 h-4" />
+                            ) : confession.status === "shared" ? (
+                              <Check className="w-4 h-4 text-green-300" />
+                            ) : (
+                              <FileText className="w-4 h-4" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <div className="font-medium whitespace-pre-wrap break-words break-all max-w-full overflow-hidden line-clamp-2">
+                              {confession.message || "Confession"}
+                            </div>
+                            <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1.5">
+                              <span
+                                className="text-xs opacity-80"
+                                title={formatTimestamp(confession.createdAt)}
+                              >
+                                {timeAgo(confession.createdAt)}
+                              </span>
+                              {confession.instagramUsername &&
+                                confession.identityConfirmed && (
+                                  <span
+                                    className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                                      isSelected
+                                        ? "border-black/20 text-black/70"
+                                        : "border-white/20 text-gray-300"
+                                    }`}
+                                  >
+                                    @{confession.instagramUsername}
+                                  </span>
+                                )}
+                              {confession.status === "not-opened" && (
+                                <span
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                    isSelected
+                                      ? "bg-black/10 text-black"
+                                      : "bg-white/10 text-white"
+                                  }`}
+                                >
+                                  NEW
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-                {/* Message */}
-                <div
-                  className="relative px-6 py-8 text-center font-semibold whitespace-pre-wrap break-words flex-1"
-                  style={{
-                    color: selectedConfession?.customColor
-                      ? getContrastTextColor(selectedConfession.customColor)
-                      : "#111",
-                    fontSize: "1.15rem",
-                    textShadow: selectedConfession?.customColor
-                      ? "0 2px 12px #000c"
-                      : "none",
-                    background: selectedConfession?.customColor
-                      ? "transparent"
-                      : "#fff",
-                    fontFamily: "Inter, Arial, sans-serif",
-                    lineHeight: "1.7",
-                    minHeight: "120px",
-                    maxHeight: "60vh",
-                    overflowY: "auto",
-                    borderRadius: 0,
-                  }}
-                >
-                  {isEditing ? (
-                    <div className="flex flex-col items-center gap-3 w-full">
-                      <textarea
-                        className="w-full min-h-[120px] p-4 rounded-lg bg-black/70 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-                        value={editMessage}
-                        onChange={(e) => setEditMessage(e.target.value)}
-                        maxLength={1100}
-                        style={{
-                          fontSize: "1.1rem",
-                          fontFamily: "Inter, Arial, sans-serif",
-                          boxShadow: "0 2px 12px #0008",
-                          width: "100%",
-                          minWidth: 0,
-                        }}
+              </>
+            )}
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main
+          className="flex-1 min-w-0 h-full overflow-y-auto relative custom-scrollbar"
+          style={{
+            background: selectedConfession?.customColor
+              ? `radial-gradient(circle at 25% 15%, ${selectedConfession.customColor}2e 0%, transparent 55%), linear-gradient(135deg, #050505 0%, #111827 45%, #0f172a 100%)`
+              : "linear-gradient(135deg, #050505 0%, #111827 45%, #0f172a 100%)",
+            transition: "background 0.7s",
+          }}
+        >
+          {selectedConfession ? (
+            <div className="relative w-full min-h-full flex flex-col items-center justify-center px-4 sm:px-6 py-10">
+              <div className="w-full max-w-2xl flex flex-col gap-4">
+                {/* Status / meta pills */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${
+                      selectedConfession.status === "not-opened"
+                        ? "bg-white/10 border-white/30 text-white"
+                        : selectedConfession.status === "shared"
+                          ? "bg-green-500/10 border-green-400/40 text-green-300"
+                          : "bg-white/5 border-white/15 text-gray-300"
+                    }`}
+                  >
+                    {selectedConfession.status === "not-opened" ? (
+                      <Eye size={13} />
+                    ) : selectedConfession.status === "shared" ? (
+                      <Check size={13} />
+                    ) : (
+                      <FileText size={13} />
+                    )}
+                    {selectedConfession.status === "not-opened"
+                      ? "New"
+                      : selectedConfession.status === "shared"
+                        ? "Shared"
+                        : "Reviewed"}
+                  </span>
+
+                  {selectedConfession.reported && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border bg-red-500/10 border-red-400/40 text-red-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                      Reported · {selectedConfession.reports || 1}
+                    </span>
+                  )}
+
+                  {isSelectedBanned && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border bg-red-950/60 border-red-500/50 text-red-300">
+                      <ShieldX size={13} />
+                      IP Banned
+                    </span>
+                  )}
+
+                  {selectedConfession.customColor && (
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-white/15 text-gray-300"
+                      title={`Custom color: ${selectedConfession.customColor}`}
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-white/30"
+                        style={{ background: selectedConfession.customColor }}
                       />
-                      <div className="flex flex-col sm:flex-row gap-2 mt-2 w-full justify-center items-center">
+                      Custom color
+                    </span>
+                  )}
+
+                  <span className="ml-auto text-xs text-gray-500">
+                    {timeAgo(selectedConfession.createdAt)}
+                  </span>
+                </div>
+
+                {/* Report Info Tab/Button */}
+                {selectedConfession.reported && (
+                  <div className="w-full max-w-md mx-auto">
+                    <details
+                      className="bg-gradient-to-br from-red-950/80 to-red-900/50 border border-red-500/40 rounded-2xl overflow-hidden shadow-lg backdrop-blur group"
+                      open={false}
+                    >
+                      <summary className="flex items-center gap-2 px-4 py-3.5 cursor-pointer select-none outline-none hover:bg-white/5 transition">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/20">
+                          <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                        </span>
+                        <span className="font-bold text-red-200 text-sm tracking-wide">
+                          Report Details
+                        </span>
+                        <span className="ml-auto text-xs font-medium text-red-300 bg-red-500/10 px-2 py-0.5 rounded-full">
+                          {selectedConfession.reports || 1} report
+                          {selectedConfession.reports > 1 ? "s" : ""}
+                        </span>
+                        <span className="ml-1 text-red-300/70 group-open:rotate-90 transition-transform">
+                          &#9654;
+                        </span>
+                      </summary>
+                      <div className="px-4 pb-4 pt-1 text-sm text-red-100 border-t border-red-500/20">
+                        <span className="font-semibold">Reasons:</span>
+                        <ul className="list-disc ml-5 mt-1 space-y-1">
+                          {(selectedConfession.reportReasons || []).map(
+                            (reason, idx) => (
+                              <li key={idx} className="break-words">
+                                {reason}
+                              </li>
+                            ),
+                          )}
+                        </ul>
                         <button
-                          className="w-full sm:w-auto px-5 py-2 rounded-lg bg-gradient-to-br from-blue-500 via-blue-700 to-blue-900 text-white font-bold shadow-lg hover:from-blue-600 hover:to-blue-800 transition"
                           onClick={async () => {
                             await updateDoc(
                               doc(db, "messages", selectedConfession.id),
                               {
-                                message: editMessage,
+                                reported: false,
+                                reports: 0,
+                                reportReasons: [],
                               },
                             );
                             setConfessions((prev) =>
                               prev.map((c) =>
                                 c.id === selectedConfession.id
-                                  ? { ...c, message: editMessage }
+                                  ? {
+                                      ...c,
+                                      reported: false,
+                                      reports: 0,
+                                      reportReasons: [],
+                                    }
                                   : c,
                               ),
                             );
                             setSelectedConfession({
                               ...selectedConfession,
-                              message: editMessage,
+                              reported: false,
+                              reports: 0,
+                              reportReasons: [],
                             });
-                            setIsEditing(false);
-                            toast.success("Confession updated!");
+                            toast.success("Report info cleared");
                           }}
+                          className="mt-4 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md shadow-red-950/50"
                         >
-                          Save
-                        </button>
-                        <button
-                          className="w-full sm:w-auto px-5 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 text-white font-bold shadow-lg transition"
-                          onClick={() => {
-                            setIsEditing(false);
-                            setEditMessage(selectedConfession.message);
-                          }}
-                        >
-                          Cancel
+                          Clear Report Info
                         </button>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-xl leading-relaxed">
-                        <TruncatedConfession
-                          text={selectedConfession.message}
-                          maxLength={200}
-                        />
-                      </p>
-                      {/* Username Info */}
-                      {selectedConfession.instagramUsername &&
-                        selectedConfession.identityConfirmed && (
-                          <div
-                            className="mt-6 text-base text-center font-semibold"
-                            style={{
-                              fontWeight: 500,
-                              letterSpacing: "0.02em",
-                              color: selectedConfession?.customColor
-                                ? getContrastMutedColor(
-                                    selectedConfession.customColor,
-                                  )
-                                : "#888",
-                              opacity: 0.9,
-                              textShadow: selectedConfession?.customColor
-                                ? "0 1px 8px #0004, 1px 1px 0 #222"
-                                : "none",
-                              transition: "color 0.3s",
-                            }}
-                          >
-                            Sent by:{" "}
-                            {isEditing ? (
-                              `@${selectedConfession.instagramUsername}`
-                            ) : (
-                              <a
-                                href={`https://instagram.com/${selectedConfession.instagramUsername}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="underline hover:opacity-80 transition"
-                                style={{
-                                  color: selectedConfession?.customColor
-                                    ? getContrastMutedColor(
-                                        selectedConfession.customColor,
-                                      )
-                                    : "#888",
-                                  textShadow: selectedConfession?.customColor
-                                    ? "0 1px 8px #0004, 1px 1px 0 #222"
-                                    : "none",
-                                }}
-                              >
-                                @{selectedConfession.instagramUsername}
-                              </a>
-                            )}
-                          </div>
-                        )}
-                    </>
-                  )}
-
-                  {/* Edit button: only show when not editing */}
-                  {!isEditing && (
-                    <button
-                      className="absolute top-4 right-4 p-3 rounded-full bg-white/90 hover:bg-blue-100 border border-gray-400 shadow-lg focus:outline-none transition z-10"
-                      style={{ boxShadow: "0 2px 12px 0 #0008" }}
-                      onClick={() => {
-                        setIsEditing(true);
-                        setEditMessage(selectedConfession.message);
-                      }}
-                      title="Edit confession"
-                      aria-label="Edit confession"
-                    >
-                      <Pencil className="w-5 h-5 text-blue-700" />
-                    </button>
-                  )}
-                </div>
-                {/* Timestamp */}
+                    </details>
+                  </div>
+                )}
+                {/* Confession Card */}
                 <div
-                  className="py-4 px-8 text-base text-center border-t"
+                  className="relative w-full confession-glass"
                   style={{
-                    fontWeight: 500,
-                    letterSpacing: "0.02em",
-                    borderBottomLeftRadius: "1rem",
-                    borderBottomRightRadius: "1rem",
+                    border: "1.5px solid",
+                    borderColor: selectedConfession?.customColor
+                      ? selectedConfession.customColor
+                      : "rgba(148,163,184,0.25)",
                     background: selectedConfession?.customColor
-                      ? `${selectedConfession.customColor}cc`
-                      : "#f3f4f6",
-                    color: selectedConfession?.customColor ? "#fff" : "#111",
-                    fontFamily: "Inter, Arial, sans-serif",
-                    textShadow: selectedConfession?.customColor
-                      ? "0 1px 8px #0004"
-                      : "none",
+                      ? `linear-gradient(120deg, ${selectedConfession.customColor}cc 0%, ${selectedConfession.customColor}99 100%)`
+                      : "linear-gradient(160deg, #1e293b 0%, #0b1120 100%)",
+                    color: selectedConfession?.customColor
+                      ? getContrastTextColor(selectedConfession.customColor)
+                      : "#f1f5f9",
+                    boxShadow: selectedConfession?.customColor
+                      ? `0 20px 50px -12px ${selectedConfession.customColor}55`
+                      : "0 20px 50px -12px rgba(0,0,0,0.7), 0 0 40px -18px rgba(59,130,246,0.35)",
+                    backdropFilter: "blur(12px)",
+                    transition: "box-shadow 0.3s, border 0.3s, background 0.3s",
+                    overflow: "hidden",
+                    borderRadius: "1.25rem",
+                    minWidth: "320px",
+                    minHeight: "220px",
+                    display: "flex",
+                    flexDirection: "column",
                   }}
                 >
-                  {formatTimestamp(selectedConfession.createdAt)}
+                  {/* Header */}
+                  <div
+                    className="py-5 px-6 font-extrabold text-center text-lg border-b flex items-center justify-center gap-2"
+                    style={{
+                      borderColor: "transparent",
+                      color: selectedConfession?.customColor
+                        ? getContrastTextColor(selectedConfession.customColor)
+                        : "#f1f5f9",
+                      fontFamily: "Montserrat, Arial, sans-serif",
+                      letterSpacing: "0.12em",
+                      background: selectedConfession?.customColor
+                        ? `linear-gradient(90deg, ${selectedConfession.customColor} 0%, ${selectedConfession.customColor}bb 100%)`
+                        : "rgba(255,255,255,0.05)",
+                      textShadow: selectedConfession?.customColor
+                        ? getContrastTextShadow(selectedConfession.customColor)
+                        : "none",
+                      borderTopLeftRadius: "1.25rem",
+                      borderTopRightRadius: "1.25rem",
+                      boxShadow: selectedConfession?.customColor
+                        ? `0 2px 16px ${selectedConfession.customColor}33`
+                        : "0 2px 16px #1112",
+                    }}
+                  >
+                    <MessageSquare size={16} className="opacity-70" />
+                    ANONYMOUS CONFESSION
+                  </div>
+                  {/* Message */}
+                  <div
+                    className="relative px-6 sm:px-10 py-10 text-center font-semibold whitespace-pre-wrap break-words flex-1"
+                    style={{
+                      color: selectedConfession?.customColor
+                        ? getContrastTextColor(selectedConfession.customColor)
+                        : "#f1f5f9",
+                      fontSize: "1.15rem",
+                      textShadow: selectedConfession?.customColor
+                        ? getContrastTextShadow(selectedConfession.customColor)
+                        : "none",
+                      background: "transparent",
+                      fontFamily: "Inter, Arial, sans-serif",
+                      lineHeight: "1.7",
+                      minHeight: "120px",
+                      maxHeight: "60vh",
+                      overflowY: "auto",
+                      borderRadius: 0,
+                    }}
+                  >
+                    {isEditing ? (
+                      <div className="flex flex-col items-center gap-3 w-full">
+                        <textarea
+                          className="w-full min-h-[120px] p-4 rounded-lg bg-black/70 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          value={editMessage}
+                          onChange={(e) => setEditMessage(e.target.value)}
+                          maxLength={1100}
+                          style={{
+                            fontSize: "1.1rem",
+                            fontFamily: "Inter, Arial, sans-serif",
+                            boxShadow: "0 2px 12px #0008",
+                            width: "100%",
+                            minWidth: 0,
+                          }}
+                        />
+                        <div className="flex flex-col sm:flex-row gap-2 mt-2 w-full justify-center items-center">
+                          <button
+                            className="w-full sm:w-auto px-5 py-2 rounded-lg bg-gradient-to-br from-blue-500 via-blue-700 to-blue-900 text-white font-bold shadow-lg hover:from-blue-600 hover:to-blue-800 transition"
+                            onClick={async () => {
+                              await updateDoc(
+                                doc(db, "messages", selectedConfession.id),
+                                {
+                                  message: editMessage,
+                                },
+                              );
+                              setConfessions((prev) =>
+                                prev.map((c) =>
+                                  c.id === selectedConfession.id
+                                    ? { ...c, message: editMessage }
+                                    : c,
+                                ),
+                              );
+                              setSelectedConfession({
+                                ...selectedConfession,
+                                message: editMessage,
+                              });
+                              setIsEditing(false);
+                              toast.success("Confession updated!");
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="w-full sm:w-auto px-5 py-2 rounded-lg bg-gray-700 hover:bg-gray-800 text-white font-bold shadow-lg transition"
+                            onClick={() => {
+                              setIsEditing(false);
+                              setEditMessage(selectedConfession.message);
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xl leading-relaxed">
+                          <TruncatedConfession
+                            text={selectedConfession.message}
+                            maxLength={200}
+                          />
+                        </p>
+                        {/* Username Info */}
+                        {selectedConfession.instagramUsername &&
+                          selectedConfession.identityConfirmed && (
+                            <div
+                              className="mt-6 text-base text-center font-semibold"
+                              style={{
+                                fontWeight: 500,
+                                letterSpacing: "0.02em",
+                                color: selectedConfession?.customColor
+                                  ? getContrastMutedColor(
+                                      selectedConfession.customColor,
+                                    )
+                                  : "#94a3b8",
+                                opacity: 0.9,
+                                textShadow: selectedConfession?.customColor
+                                  ? getContrastTextShadow(
+                                      selectedConfession.customColor,
+                                    )
+                                  : "none",
+                                transition: "color 0.3s",
+                              }}
+                            >
+                              Sent by:{" "}
+                              {isEditing ? (
+                                `@${selectedConfession.instagramUsername}`
+                              ) : (
+                                <a
+                                  href={`https://instagram.com/${selectedConfession.instagramUsername}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline hover:opacity-80 transition"
+                                  style={{
+                                    color: selectedConfession?.customColor
+                                      ? getContrastMutedColor(
+                                          selectedConfession.customColor,
+                                        )
+                                      : "#94a3b8",
+                                    textShadow: selectedConfession?.customColor
+                                      ? getContrastTextShadow(
+                                          selectedConfession.customColor,
+                                        )
+                                      : "none",
+                                  }}
+                                >
+                                  @{selectedConfession.instagramUsername}
+                                </a>
+                              )}
+                            </div>
+                          )}
+                      </>
+                    )}
+
+                    {/* Edit button: only show when not editing */}
+                    {!isEditing && (
+                      <button
+                        className="absolute top-3 right-3 p-2.5 rounded-full bg-white/90 hover:bg-blue-100 hover:scale-105 border border-gray-300 shadow-lg focus:outline-none transition-all z-10"
+                        style={{ boxShadow: "0 2px 12px 0 #0008" }}
+                        onClick={() => {
+                          setIsEditing(true);
+                          setEditMessage(selectedConfession.message);
+                        }}
+                        title="Edit confession"
+                        aria-label="Edit confession"
+                      >
+                        <Pencil className="w-4 h-4 text-blue-700" />
+                      </button>
+                    )}
+                  </div>
+                  {/* Timestamp */}
+                  <div
+                    className="py-3.5 px-8 text-xs font-semibold text-center border-t uppercase tracking-wider"
+                    style={{
+                      fontWeight: 500,
+                      letterSpacing: "0.08em",
+                      borderBottomLeftRadius: "1.25rem",
+                      borderBottomRightRadius: "1.25rem",
+                      borderColor: selectedConfession?.customColor
+                        ? `${selectedConfession.customColor}40`
+                        : "rgba(255,255,255,0.08)",
+                      background: selectedConfession?.customColor
+                        ? `${selectedConfession.customColor}cc`
+                        : "rgba(255,255,255,0.04)",
+                      color: selectedConfession?.customColor
+                        ? getContrastTextColor(selectedConfession.customColor)
+                        : "#94a3b8",
+                      fontFamily: "Inter, Arial, sans-serif",
+                      textShadow: selectedConfession?.customColor
+                        ? getContrastTextShadow(selectedConfession.customColor)
+                        : "none",
+                    }}
+                  >
+                    {formatTimestamp(selectedConfession.createdAt)}
+                  </div>
+                </div>
+                {/* IP / Device Info */}
+                {(selectedConfession.ipAddress ||
+                  selectedConfession.deviceInfo) && (
+                  <details className="w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur group open:bg-white/[0.07] transition-colors">
+                    <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none outline-none text-xs font-semibold text-gray-300 hover:text-white transition">
+                      <Info size={14} className="opacity-70" />
+                      Submission metadata
+                      <ChevronDown
+                        size={14}
+                        className="ml-auto opacity-60 group-open:rotate-180 transition-transform"
+                      />
+                    </summary>
+                    <div className="px-4 pb-4 pt-1 flex flex-col sm:flex-row sm:flex-wrap gap-3 text-xs text-gray-300 border-t border-white/10">
+                      {/* IP Address */}
+                      {selectedConfession.ipAddress && (
+                        <div
+                          title="Click to copy IP"
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              selectedConfession.ipAddress,
+                            );
+                            toast.success("IP address copied!");
+                          }}
+                          className="cursor-pointer hover:text-blue-400 transition flex items-center gap-1.5 bg-black/30 rounded-lg px-2.5 py-1.5"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span className="truncate">
+                            {selectedConfession.ipAddress}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Jump to all confessions from this same IP */}
+                      {selectedConfession.ipAddress && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleFilterByUser(selectedConfession.ipAddress)
+                          }
+                          disabled={
+                            userFilterIp === selectedConfession.ipAddress
+                          }
+                          className="flex items-center gap-1.5 bg-blue-500/10 hover:bg-blue-500/20 disabled:bg-white/5 disabled:cursor-default disabled:text-gray-500 text-blue-300 rounded-lg px-2.5 py-1.5 transition"
+                          title="Show every confession sent from this IP address"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          {userFilterIp === selectedConfession.ipAddress
+                            ? "Viewing this user's confessions"
+                            : "View all from this user"}
+                        </button>
+                      )}
+
+                      {/* Device Info */}
+                      {selectedConfession.deviceInfo && (
+                        <div className="flex flex-wrap gap-2 text-gray-400">
+                          {selectedConfession.deviceInfo
+                            .split(" | ")
+                            .map((part, idx) => {
+                              const [label, ...rest] = part.split(":");
+                              const value = rest.join(":").trim();
+                              if (!label || !value) return null;
+
+                              let icon = <Info className="w-3.5 h-3.5" />;
+                              if (label.includes("OS"))
+                                icon = <Monitor className="w-3.5 h-3.5" />;
+                              else if (label.includes("Browser"))
+                                icon = <Globe className="w-3.5 h-3.5" />;
+                              else if (label.includes("Device Type"))
+                                icon = <Smartphone className="w-3.5 h-3.5" />;
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-1.5 bg-black/30 rounded-lg px-2.5 py-1.5"
+                                >
+                                  {icon}
+                                  <span className="font-semibold text-gray-300">
+                                    {label.trim()}:
+                                  </span>
+                                  <span className="truncate">{value}</span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                )}
+
+                {/* Action buttons */}
+                <div className="w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-4">
+                  <div className="w-full flex flex-wrap justify-center gap-3">
+                    <button
+                      onClick={handleSaveImage}
+                      disabled={savingImage}
+                      className="flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-black hover:bg-gray-100 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Download size={18} />
+                      {savingImage ? "Generating..." : "Save as Image"}
+                    </button>
+
+                    <button
+                      onClick={handleDeleteClick}
+                      className={`flex items-center justify-center gap-2 px-4 py-2 rounded-full border bg-red-900 text-white font-medium transition-all w-full sm:w-auto min-w-[140px] ${
+                        deleteConfirm
+                          ? "border-red-500 bg-red-700"
+                          : "border-red-700 hover:bg-red-800"
+                      }`}
+                    >
+                      <Trash2 size={18} />
+                      {deleteConfirm ? "Confirm?" : "Delete"}
+                    </button>
+
+                    <button
+                      onClick={handleMarkAsShared}
+                      disabled={selectedConfession.status === "shared"}
+                      className={`flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium transition-all w-full sm:w-auto min-w-[140px] ${
+                        selectedConfession.status === "shared"
+                          ? "opacity-60 cursor-not-allowed bg-green-800 border-green-600 text-white"
+                          : "bg-green-700 border-green-600 hover:bg-green-800 text-white"
+                      }`}
+                    >
+                      <Check size={18} />
+                      {selectedConfession.status === "shared"
+                        ? "Marked as Shared"
+                        : "Mark as Shared"}
+                    </button>
+
+                    {isSelectedBanned ? (
+                      <button
+                        onClick={handleUnbanSelectedIp}
+                        disabled={!selectedConfession.ipAddress || unbanLoading}
+                        title="Unban this user's IP"
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-700 border border-green-600 text-white hover:bg-green-800 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-50"
+                      >
+                        <Undo2 className="w-5 h-5" />
+                        {unbanLoading ? "Please wait..." : "Unban User"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleBanIp}
+                        disabled={!selectedConfession.ipAddress || banLoading}
+                        title={
+                          selectedConfession.ipAddress
+                            ? "Ban this user's IP"
+                            : "No IP address to ban"
+                        }
+                        className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-red-700 border border-red-600 text-white hover:bg-red-800 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-50"
+                      >
+                        🚫 {banLoading ? "Please wait..." : "Ban User"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </>
-        ) : (
-          <div className="text-center max-w-md">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl p-8 mb-6 mx-auto w-48 h-48 flex items-center justify-center">
-              <FileText size={64} className="text-gray-600" />
-            </div>
-            <h3 className="text-xl font-medium mb-2">No Confession Selected</h3>
-            <p className="text-gray-400">
-              Select a confession from the sidebar to view details
-            </p>
-          </div>
-        )}
-        {selectedConfession &&
-          (selectedConfession.ipAddress || selectedConfession.deviceInfo) && (
-            <div className="absolute top-2 right-3 z-10 p-3 rounded-xl bg-zinc-900/90 shadow-lg flex flex-col gap-2 min-w-[120px] max-w-[220px] text-[11px] text-gray-300">
-              {/* IP Address */}
-              {selectedConfession.ipAddress && (
-                <div
-                  title="Click to copy IP"
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedConfession.ipAddress);
-                    toast.success("IP address copied!");
-                  }}
-                  className="cursor-pointer hover:text-blue-400 transition flex items-center gap-1"
-                >
-                  <Globe className="w-3 h-3" />
-                  <span className="truncate">
-                    {selectedConfession.ipAddress}
-                  </span>
+          ) : (
+            <div className="h-full min-h-[70vh] w-full max-w-md flex flex-col items-center justify-center px-6 text-center mx-auto">
+              <div className="relative mb-8">
+                <div className="absolute inset-0 rounded-full bg-blue-500/10 blur-3xl scale-150" />
+                <div className="relative bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-600/40 rounded-3xl p-10 flex items-center justify-center shadow-2xl">
+                  <MessageSquare size={52} className="text-slate-400" />
                 </div>
-              )}
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">
+                No Confession Selected
+              </h3>
+              <p className="text-slate-300">
+                Pick a confession from the list on the left to view its full
+                details, manage its status, or take action.
+              </p>
 
-              {/* Device Info */}
-              {selectedConfession.deviceInfo && (
-                <div className="flex flex-col gap-1 text-gray-400 text-[10px]">
-                  {selectedConfession.deviceInfo
-                    .split(" | ")
-                    .map((part, idx) => {
-                      const [label, ...rest] = part.split(":");
-                      const value = rest.join(":").trim();
-                      if (!label || !value) return null;
-
-                      let icon = <Info className="w-3 h-3" />;
-                      if (label.includes("OS"))
-                        icon = <Monitor className="w-3 h-3" />;
-                      else if (label.includes("Browser"))
-                        icon = <Globe className="w-3 h-3" />;
-                      else if (label.includes("Device Type"))
-                        icon = <Smartphone className="w-3 h-3" />;
-
-                      return (
-                        <div key={idx} className="flex items-center gap-1">
-                          {icon}
-                          <span className="font-semibold">{label.trim()}:</span>
-                          <span className="truncate">{value}</span>
-                        </div>
-                      );
-                    })}
+              {confessions.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 mt-8 w-full">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <div className="text-2xl font-bold text-white">
+                      {confessions.length}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">Total</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <div className="text-2xl font-bold text-white">
+                      {
+                        confessions.filter((c) => c.status === "not-opened")
+                          .length
+                      }
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      Unopened
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-green-400/20 bg-green-500/5 px-4 py-3">
+                    <div className="text-2xl font-bold text-green-300">
+                      {confessions.filter((c) => c.status === "shared").length}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">Shared</div>
+                  </div>
+                  <div className="rounded-2xl border border-red-400/20 bg-red-500/5 px-4 py-3">
+                    <div className="text-2xl font-bold text-red-300">
+                      {
+                        confessions.filter((c) => c.reported && c.reports > 0)
+                          .length
+                      }
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      Reported
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           )}
-
-        {selectedConfession && (
-          <div className="w-full flex justify-center mt-6 md:mt-10 px-4">
-            <div className="w-full max-w-2xl flex flex-wrap justify-center gap-3 z-20">
-              <button
-                onClick={handleSaveImage}
-                disabled={savingImage}
-                className="flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-black hover:bg-gray-100 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <Download size={18} />
-                {savingImage ? "Generating..." : "Save as Image"}
-              </button>
-
-              <button
-                onClick={handleDeleteClick}
-                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-full border bg-red-900 text-white font-medium transition-all w-full sm:w-auto min-w-[140px] ${
-                  deleteConfirm
-                    ? "border-red-500 bg-red-700"
-                    : "border-red-700 hover:bg-red-800"
-                }`}
-              >
-                <Trash2 size={18} />
-                {deleteConfirm ? "Confirm?" : "Delete"}
-              </button>
-
-              <button
-                onClick={handleMarkAsShared}
-                disabled={selectedConfession.status === "shared"}
-                className={`flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium transition-all w-full sm:w-auto min-w-[140px] ${
-                  selectedConfession.status === "shared"
-                    ? "opacity-60 cursor-not-allowed bg-green-800 border-green-600 text-white"
-                    : "bg-green-700 border-green-600 hover:bg-green-800 text-white"
-                }`}
-              >
-                <Check size={18} />
-                {selectedConfession.status === "shared"
-                  ? "Marked as Shared"
-                  : "Mark as Shared"}
-              </button>
-
-              {isSelectedBanned ? (
-                <button
-                  onClick={handleUnbanSelectedIp}
-                  disabled={!selectedConfession.ipAddress || unbanLoading}
-                  title="Unban this user's IP"
-                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-green-700 border border-green-600 text-white hover:bg-green-800 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-50"
-                >
-                  <Undo2 className="w-5 h-5" />
-                  {unbanLoading ? "Please wait..." : "Unban User"}
-                </button>
-              ) : (
-                <button
-                  onClick={handleBanIp}
-                  disabled={!selectedConfession.ipAddress || banLoading}
-                  title={
-                    selectedConfession.ipAddress
-                      ? "Ban this user's IP"
-                      : "No IP address to ban"
-                  }
-                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-red-700 border border-red-600 text-white hover:bg-red-800 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-50"
-                >
-                  🚫 {banLoading ? "Please wait..." : "Ban User"}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </main>
+        </main>
+      </div>
 
       {/* Stats Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-black via-gray-900 to-black border-t border-white/10 px-4 py-2">
+      <div className="shrink-0 z-30 bg-gradient-to-r from-black via-black-900 to-black border-t border-white/10 px-4 py-2">
         <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-300 text-center">
           <div className="flex-1 min-w-[120px]">
             <span className="font-semibold">{confessions.length}</span>{" "}
