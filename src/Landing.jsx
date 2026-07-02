@@ -21,13 +21,38 @@ export default function LandingPage() {
       label: "Terms & Conditions",
       icon: FaLock,
       onClick: () => navigate("/terms"),
+      tone: "blue",
     },
     {
       label: "Report a Confession",
       icon: FaExclamationTriangle,
       onClick: () => navigate("/report"),
+      tone: "red",
     },
   ];
+
+  // Per-tone styling so each secondary action has its own dark, distinct
+  // identity instead of every non-primary button looking identical.
+  const TONE_STYLES = {
+    blue: {
+      button:
+        "bg-gradient-to-br from-blue-950/60 via-black to-blue-900/30 text-blue-100 border-blue-500/25 hover:border-blue-400/50 hover:bg-blue-950/80 hover:shadow-[0_0_30px_rgba(59,130,246,0.15)]",
+      icon: "bg-blue-500/10 text-blue-300 border border-blue-400/20",
+      arrow: "text-blue-400/50",
+    },
+    red: {
+      button:
+        "bg-gradient-to-br from-red-950/60 via-black to-red-900/30 text-red-100 border-red-500/25 hover:border-red-400/50 hover:bg-red-950/80 hover:shadow-[0_0_30px_rgba(239,68,68,0.15)]",
+      icon: "bg-red-500/10 text-red-300 border border-red-400/20",
+      arrow: "text-red-400/50",
+    },
+    default: {
+      button:
+        "bg-gradient-to-br from-gray-900/80 via-black/80 to-gray-900/80 text-gray-200 border-white/10 hover:border-white/25 hover:bg-gray-900",
+      icon: "bg-white/5 text-white border border-white/10",
+      arrow: "text-gray-600",
+    },
+  };
 
   return (
     <div className="relative min-h-screen w-full bg-gradient-to-br from-black via-gray-950 to-black flex flex-col items-center justify-center px-4 overflow-hidden">
@@ -63,39 +88,41 @@ export default function LandingPage() {
         </div>
 
         <div className="flex flex-col gap-4 w-full">
-          {actions.map(({ label, icon: Icon, onClick, primary }) => (
-            <button
-              key={label}
-              onClick={onClick}
-              className={`group relative flex items-center gap-4 w-full py-4 px-5 rounded-2xl font-semibold text-left shadow-lg border transition-all duration-300 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-white/30 ${
-                primary
-                  ? "bg-gradient-to-br from-gray-100 via-white to-gray-200 text-black border-white/80 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)]"
-                  : "bg-gradient-to-br from-gray-900/80 via-black/80 to-gray-900/80 text-gray-200 border-white/10 hover:border-white/25 hover:bg-gray-900"
-              }`}
-            >
-              <span
-                className={`flex items-center justify-center w-10 h-10 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110 ${
+          {actions.map(({ label, icon: Icon, onClick, primary, tone }, i) => {
+            const style = TONE_STYLES[tone] || TONE_STYLES.default;
+            return (
+              <button
+                key={label}
+                onClick={onClick}
+                style={{ animationDelay: `${0.15 + i * 0.1}s` }}
+                className={`group relative flex items-center gap-4 w-full py-4 px-5 rounded-2xl font-semibold text-left shadow-lg border transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.02] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-white/30 animate-[fadeIn_0.5s_ease_backwards] ${
                   primary
-                    ? "bg-black/10 text-black"
-                    : "bg-white/5 text-white border border-white/10"
+                    ? "bg-gradient-to-br from-gray-100 via-white to-gray-200 text-black border-white/80 hover:shadow-[0_0_30px_rgba(255,255,255,0.15)]"
+                    : style.button
                 }`}
               >
-                <Icon className="text-lg" />
-              </span>
-              <span
-                className={`text-base sm:text-lg ${primary ? "font-extrabold" : "font-semibold"}`}
-              >
-                {label}
-              </span>
-              <span
-                className={`ml-auto text-lg transition-transform duration-300 group-hover:translate-x-1 ${
-                  primary ? "text-black/40" : "text-gray-600"
-                }`}
-              >
-                &rarr;
-              </span>
-            </button>
-          ))}
+                <span
+                  className={`flex items-center justify-center w-10 h-10 rounded-xl shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6 ${
+                    primary ? "bg-black/10 text-black" : style.icon
+                  }`}
+                >
+                  <Icon className="text-lg" />
+                </span>
+                <span
+                  className={`text-base sm:text-lg ${primary ? "font-extrabold" : "font-semibold"}`}
+                >
+                  {label}
+                </span>
+                <span
+                  className={`ml-auto text-lg transition-transform duration-300 group-hover:translate-x-1 ${
+                    primary ? "text-black/40" : style.arrow
+                  }`}
+                >
+                  &rarr;
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

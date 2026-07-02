@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   collection,
   query,
@@ -10,16 +10,82 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { toast, Toaster } from "react-hot-toast";
-import { Check, Flag, Search, X as CloseIcon } from "lucide-react";
+import {
+  Check,
+  Flag,
+  Search,
+  X as CloseIcon,
+  Clock,
+  ArrowUpDown,
+  ChevronDown,
+  Info,
+  Hash,
+  FolderX,
+} from "lucide-react";
 import sendToDiscord from "./sendToDiscord";
+
+const REPORT_REASONS = [
+  "Use of Abusive or Inappropriate Language",
+  "Sharing Sensitive or Private Information",
+  "Hate Speech or Discrimination",
+  "Harassment or Bullying",
+  "Irrelevant or Non-Constructive Submissions",
+  "Spamming or Repeated Submissions",
+];
+const MAX_REPORTS_PER_USER = 2;
+const MAX_CUSTOM_REASON = 300;
+const COOLDOWN_MS = 5000;
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+];
+
+function toMillis(ts) {
+  if (!ts) return 0;
+  if (typeof ts.toDate === "function") return ts.toDate().getTime();
+  if (typeof ts === "number") return ts;
+  return new Date(ts).getTime() || 0;
+}
+
+function timeAgo(timestamp) {
+  const millis = toMillis(timestamp);
+  if (!millis) return "";
+  const seconds = Math.floor((Date.now() - millis) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(millis).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// Deterministic short case number from a Firestore doc id, e.g. "F-2A9C".
+function caseNumber(id) {
+  if (!id) return "F-0000";
+  const hash = Array.from(id).reduce(
+    (acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0,
+    7,
+  );
+  return `F-${hash.toString(16).slice(-4).toUpperCase().padStart(4, "0")}`;
+}
 
 export default function ReportsPage() {
   const [confessions, setConfessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reportingId, setReportingId] = useState(null);
-  const [reason, setReason] = useState("");
+  const [reasonOption, setReasonOption] = useState(REPORT_REASONS[0]);
+  const [customReason, setCustomReason] = useState("");
   const [reportCounts, setReportCounts] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showGuidelines, setShowGuidelines] = useState(false);
   const [cooldowns, setCooldowns] = useState({});
   const [submitting, setSubmitting] = useState({});
 
@@ -32,18 +98,18 @@ export default function ReportsPage() {
     setLoading(true);
     const q = query(
       collection(db, "messages"),
-      where("status", "==", "shared")
+      where("status", "==", "shared"),
     );
     const unsub = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const docs = snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
       }));
 
       // Reset localStorage report limit if confession has 0 reports
       let changed = false;
       const stored = JSON.parse(
-        localStorage.getItem("confessionReports") || "{}"
+        localStorage.getItem("confessionReports") || "{}",
       );
       docs.forEach((c) => {
         if ((c.reports || 0) === 0 && stored[c.id]) {
@@ -62,10 +128,23 @@ export default function ReportsPage() {
     return () => unsub();
   }, []);
 
-  const COOLDOWN_MS = 5000;
+  const isReasonCustom = reasonOption === "custom";
+  const activeReasonText = isReasonCustom ? customReason.trim() : reasonOption;
+
+  const openReportForm = (id) => {
+    setReportingId(id);
+    setReasonOption(REPORT_REASONS[0]);
+    setCustomReason("");
+  };
+
+  const closeReportForm = () => {
+    setReportingId(null);
+    setReasonOption(REPORT_REASONS[0]);
+    setCustomReason("");
+  };
 
   const handleReport = async (confessionId) => {
-    if (!reason.trim()) {
+    if (!activeReasonText) {
       toast.error("Please provide a reason.");
       return;
     }
@@ -74,10 +153,10 @@ export default function ReportsPage() {
       return;
     }
     const stored = JSON.parse(
-      localStorage.getItem("confessionReports") || "{}"
+      localStorage.getItem("confessionReports") || "{}",
     );
     const count = stored[confessionId] || 0;
-    if (count >= 2) {
+    if (count >= MAX_REPORTS_PER_USER) {
       toast.error("You have already reported this confession twice.");
       return;
     }
@@ -92,189 +171,386 @@ export default function ReportsPage() {
         reportReasons: [
           ...(confessions.find((c) => c.id === confessionId)?.reportReasons ||
             []),
-          reason,
+          activeReasonText,
         ],
       });
 
       const confession = confessions.find((c) => c.id === confessionId);
       await sendToDiscord(
-        `Confession: "${confession?.message || ""}"\nReason: "${reason}"`,
-        "report"
+        `Confession: "${confession?.message || ""}"\nReason: "${activeReasonText}"`,
+        "report",
       );
 
       stored[confessionId] = count + 1;
       localStorage.setItem("confessionReports", JSON.stringify(stored));
       setReportCounts(stored);
 
-      setCooldowns((prev) => ({
-        ...prev,
-        [confessionId]: true,
-      }));
+      setCooldowns((prev) => ({ ...prev, [confessionId]: true }));
       setTimeout(() => {
-        setCooldowns((prev) => ({
-          ...prev,
-          [confessionId]: false,
-        }));
+        setCooldowns((prev) => ({ ...prev, [confessionId]: false }));
       }, COOLDOWN_MS);
 
-      setReportingId(null);
-      setReason("");
+      closeReportForm();
       toast.success("Thank you for your feedback!");
     } finally {
       setSubmitting((prev) => ({ ...prev, [confessionId]: false }));
     }
   };
 
-  const filteredConfessions = confessions.filter((confession) =>
-    (confession.message || "")
-      .toLowerCase()
-      .includes(searchTerm.trim().toLowerCase())
+  const filteredConfessions = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    const list = confessions.filter((confession) =>
+      (confession.message || "").toLowerCase().includes(term),
+    );
+    return list.slice().sort((a, b) => {
+      const diff = toMillis(b.createdAt) - toMillis(a.createdAt);
+      return sortBy === "oldest" ? -diff : diff;
+    });
+  }, [confessions, searchTerm, sortBy]);
+
+  const reportedByMeCount = useMemo(
+    () => Object.values(reportCounts).filter((n) => n > 0).length,
+    [reportCounts],
   );
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-black via-gray-900 to-black flex flex-col items-center px-2 py-8">
-      <Toaster />
-      <div className="w-full max-w-2xl mx-auto rounded-3xl shadow-2xl border border-gray-800 bg-gradient-to-br from-gray-900/90 via-black/95 to-gray-800/90 backdrop-blur-2xl p-0 sm:p-0 overflow-hidden">
-        {/* Header */}
-        <header className="w-full text-center py-8 px-2 sm:py-10 sm:px-6 bg-gradient-to-br from-black/90 via-gray-900/90 to-gray-800/90 border-b border-gray-800">
-          <Flag className="mx-auto mb-3 text-gray-300" size={38} />
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent drop-shadow-lg mb-2">
-            Report a Confession
-          </h1>
-          <p className="text-gray-400 max-w-xl mx-auto text-base sm:text-lg">
-            Help us keep the platform safe and respectful. Search and report
-            inappropriate confessions below.
-          </p>
-        </header>
+    <div className="min-h-screen w-full bg-black text-gray-200 relative">
+      <Toaster
+        toastOptions={{
+          style: {
+            background: "#0a0a0a",
+            color: "#f3f4f6",
+            border: "1px solid rgba(255,255,255,0.1)",
+            fontFamily: "monospace",
+          },
+        }}
+      />
 
-        {/* Search Bar */}
-        <div className="relative mb-8 max-w-lg mx-auto mt-8">
-          <input
-            type="text"
-            placeholder="Search confessions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-gradient-to-br from-gray-900 via-black to-gray-900 border border-gray-700 rounded-xl py-3 px-5 pl-12 text-white focus:outline-none focus:ring-2 focus:ring-gray-500 transition text-base shadow-lg"
-          />
-          <span className="absolute left-4 top-3.5 text-gray-500">
-            <Search size={20} />
-          </span>
-          {searchTerm && (
+      {/* Ambient texture: faint hazard stripes + vignette instead of generic blurry blobs */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.05]"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(135deg, #fff 0px, #fff 1px, transparent 1px, transparent 14px)",
+        }}
+      />
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.06),_transparent_60%)]" />
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_bottom,_rgba(127,29,29,0.15),_transparent_55%)]" />
+
+      {/* Sticky control bar */}
+      <div className="sticky top-0 z-30 backdrop-blur-xl bg-black/80 border-b border-white/10">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-500/10 border border-red-400/30 flex items-center justify-center rotate-3">
+                <Flag className="text-red-400" size={18} />
+              </div>
+              <div>
+                <h1 className="font-mono text-sm sm:text-base tracking-[0.2em] text-white uppercase">
+                  Report Confessions
+                </h1>
+                <p className="font-mono text-[10px] sm:text-xs text-gray-400">
+                  {confessions.length} active confessions
+                  {confessions.length === 1 ? "" : "s"}
+                  {reportedByMeCount > 0 &&
+                    ` · you flagged ${reportedByMeCount}`}
+                </p>
+              </div>
+            </div>
+
             <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-4 top-3.5 text-gray-500 hover:text-white"
-              aria-label="Clear search"
+              type="button"
+              onClick={() => setShowGuidelines((v) => !v)}
+              className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wide px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition"
             >
-              <CloseIcon size={18} />
+              <Info size={13} />
+              Rules
+              <ChevronDown
+                size={13}
+                className={`transition-transform ${showGuidelines ? "rotate-180" : ""}`}
+              />
             </button>
+          </div>
+
+          {showGuidelines && (
+            <div className="mt-3 rounded-lg border border-dashed border-white/15 bg-white/[0.03] p-4 text-xs sm:text-sm text-gray-400 leading-relaxed animate-[fadeIn_0.2s_ease] font-mono">
+              <p className="text-gray-200 mb-1.5">
+                // flag a confession when it contains:
+              </p>
+              <ul className="space-y-1 text-gray-500">
+                <li>01. abusive, hateful or discriminatory language</li>
+                <li>02. someone's private or sensitive information</li>
+                <li>03. spam or repeated junk submissions</li>
+                <li>04. targeted harassment or bullying</li>
+              </ul>
+              <p className="mt-2 text-gray-600">
+                limit: {MAX_REPORTS_PER_USER} flags per case from this browser.
+                every report is reviewed by a human.
+              </p>
+            </div>
+          )}
+
+          {/* Search + sort */}
+          <div className="flex gap-2 mt-4">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Search case files..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-4 pl-10 text-sm text-white placeholder-gray-600 font-mono focus:outline-none focus:ring-1 focus:ring-red-400/50 focus:border-red-400/50 transition"
+              />
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600">
+                <Search size={15} />
+              </span>
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition"
+                  aria-label="Clear search"
+                >
+                  <CloseIcon size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowSortMenu((v) => !v)}
+                className="h-full flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20 transition text-xs font-mono uppercase"
+              >
+                <ArrowUpDown size={14} />
+                <span className="hidden sm:inline">
+                  {SORT_OPTIONS.find((o) => o.value === sortBy)?.label}
+                </span>
+              </button>
+              {showSortMenu && (
+                <div className="absolute right-0 mt-2 w-44 rounded-lg border border-white/10 bg-gray-950 shadow-2xl z-20 overflow-hidden">
+                  {SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setSortBy(option.value);
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-xs font-mono transition ${
+                        sortBy === option.value
+                          ? "bg-white/10 text-white"
+                          : "text-gray-500 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {searchTerm && (
+            <div className="mt-2 text-[11px] font-mono text-gray-600">
+              {filteredConfessions.length} match
+              {filteredConfessions.length === 1 ? "" : "es"} · "{searchTerm}"
+            </div>
           )}
         </div>
+      </div>
 
-        {/* Confessions List */}
-        <div className="space-y-7 min-h-[200px] flex flex-col justify-center px-3 sm:px-6 pb-10">
-          {loading ? (
-            <div className="flex justify-center items-center py-16">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-600"></div>
-              <span className="ml-4 text-gray-400 text-lg">
-                Loading confessions...
-              </span>
+      {/* Case file grid */}
+      <div className="relative z-10 max-w-5xl mx-auto px-4 py-8">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-3 font-mono text-gray-500 text-sm">
+            <div className="flex gap-1">
+              <span className="w-2 h-2 rounded-full bg-red-400 animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-2 h-2 rounded-full bg-red-400 animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-2 h-2 rounded-full bg-red-400 animate-bounce" />
             </div>
-          ) : filteredConfessions.length === 0 ? (
-            <div className="text-gray-500 text-center py-16 text-lg">
-              No confessions found.
+            pulling confession...
+          </div>
+        ) : filteredConfessions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-16 h-16 rounded-xl bg-white/5 border border-dashed border-white/15 flex items-center justify-center mb-4 -rotate-3">
+              <FolderX size={26} className="text-gray-600" />
             </div>
-          ) : (
-            filteredConfessions
-              .slice()
-              .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-              .map((confession) => (
+            <p className="font-mono text-gray-400 text-sm uppercase tracking-wide">
+              No confessions
+            </p>
+            <p className="text-gray-600 text-xs mt-1 font-mono">
+              {searchTerm
+                ? "try a different search term."
+                : "nothing shared publicly yet."}
+            </p>
+          </div>
+        ) : (
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 [column-fill:_balance]">
+            {filteredConfessions.map((confession) => {
+              const myReports = reportCounts[confession.id] || 0;
+              const atLimit = myReports >= MAX_REPORTS_PER_USER;
+              const isOpen = reportingId === confession.id;
+              const isCoolingDown = cooldowns[confession.id];
+              const isSubmitting = submitting[confession.id];
+              const canReport = !atLimit && !isCoolingDown && !isSubmitting;
+
+              return (
                 <div
                   key={confession.id}
-                  className="relative bg-gradient-to-br from-gray-900 via-black to-gray-800 border border-gray-800 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-shadow duration-200 group"
-                >
-                  {/* Futuristic small report button at top right */}
-                  <button
-                    onClick={() => setReportingId(confession.id)}
-                    disabled={
-                      reportCounts[confession.id] >= 2 ||
-                      cooldowns[confession.id] ||
-                      submitting[confession.id]
+                  role={canReport && !isOpen ? "button" : undefined}
+                  tabIndex={canReport && !isOpen ? 0 : undefined}
+                  onClick={() => {
+                    if (canReport && !isOpen) openReportForm(confession.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (
+                      canReport &&
+                      !isOpen &&
+                      (e.key === "Enter" || e.key === " ")
+                    ) {
+                      e.preventDefault();
+                      openReportForm(confession.id);
                     }
-                    className={`absolute top-4 right-4 p-2 rounded-full border border-gray-700 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-gray-400 hover:text-red-400 hover:border-red-400 hover:bg-gray-900/80 transition text-xs flex items-center shadow-lg z-10
-                      ${
-                        reportCounts[confession.id] >= 2 ||
-                        cooldowns[confession.id] ||
-                        submitting[confession.id]
-                          ? "opacity-60 cursor-not-allowed"
-                          : ""
-                      }`}
-                    title="Report this confession"
-                  >
-                    <Flag size={16} className="text-red-400" />
-                  </button>
-                  <div className="text-lg font-medium whitespace-pre-wrap break-words text-center text-white tracking-wide leading-relaxed">
-                    {confession.message}
-                  </div>
-                  {reportCounts[confession.id] >= 2 ? (
-                    <div className="text-gray-400 text-xs mt-3 font-medium flex items-center gap-2 justify-center">
-                      <Check size={14} /> You have reached the report limit for
-                      this confession.
+                  }}
+                  title={
+                    atLimit
+                      ? "You've reached the report limit for this case"
+                      : canReport && !isOpen
+                        ? "Click to flag this confession"
+                        : undefined
+                  }
+                  className={`relative mb-4 break-inside-avoid rounded-xl border bg-[#0d0d0d] p-5 transition-all duration-200 group overflow-hidden ${
+                    isOpen
+                      ? "border-red-400/50 shadow-[0_0_0_1px_rgba(248,113,113,0.3),0_12px_30px_-10px_rgba(220,38,38,0.35)]"
+                      : canReport
+                        ? "border-white/10 cursor-pointer hover:border-red-400/40 hover:-translate-y-0.5 hover:shadow-[0_16px_30px_-12px_rgba(0,0,0,0.7)]"
+                        : "border-white/10 opacity-70"
+                  }`}
+                >
+                  {/* Folded-corner detail */}
+                  <div
+                    className="absolute top-0 right-0 w-5 h-5 bg-white/[0.06] border-l border-b border-white/10"
+                    style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}
+                  />
+
+                  {/* Diagonal stamp, revealed on hover/focus */}
+                  {canReport && !isOpen && (
+                    <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-200">
+                      <span className="font-mono font-black text-2xl sm:text-3xl tracking-widest text-red-500/25 border-4 border-red-500/25 rounded px-4 py-1 -rotate-12">
+                        FLAG
+                      </span>
                     </div>
-                  ) : reportingId === confession.id ? (
-                    <div className="mt-4 flex flex-col gap-2 bg-gradient-to-br from-gray-900/80 via-black/80 to-gray-800/80 border border-gray-700 rounded-xl p-4">
-                      <textarea
-                        className="w-full p-2 rounded bg-black border border-gray-700 text-white focus:ring-2 focus:ring-gray-500 transition text-sm"
-                        rows={2}
-                        placeholder="Reason for reporting..."
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                        maxLength={300}
-                      />
-                      <div className="flex justify-end text-xs mt-1 text-gray-400">
-                        <span
-                          className={
-                            reason.length >= 300
-                              ? "text-red-400 font-semibold"
-                              : ""
-                          }
+                  )}
+
+                  {/* Case header */}
+                  <div className="relative flex items-center justify-between mb-3 font-mono text-[10px] uppercase tracking-wider text-gray-400">
+                    {confession.createdAt && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock size={10} />
+                        {timeAgo(confession.createdAt)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Message */}
+                  <p className="relative font-serif text-[15px] sm:text-base text-gray-100 leading-relaxed whitespace-pre-wrap break-words">
+                    "{confession.message}"
+                  </p>
+
+                  {confession.instagramUsername &&
+                    confession.identityConfirmed && (
+                      <p className="relative mt-3 font-mono text-[10px] text-gray-600">
+                        — @{confession.instagramUsername}
+                      </p>
+                    )}
+
+                  {atLimit && (
+                    <div className="relative mt-4 pt-3 border-t border-dashed border-white/10 text-gray-500 text-[11px] font-mono flex items-center gap-2">
+                      <Check size={13} /> limit reached for this case
+                    </div>
+                  )}
+
+                  {isOpen && (
+                    <div
+                      className="relative mt-4 pt-4 border-t border-dashed border-red-400/30 flex flex-col gap-3 animate-[fadeIn_0.2s_ease]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div>
+                        <label className="block text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1.5">
+                          Reason
+                        </label>
+                        <select
+                          value={reasonOption}
+                          onChange={(e) => setReasonOption(e.target.value)}
+                          className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-xs sm:text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-400/50 transition"
                         >
-                          {300 - reason.length}
-                        </span>
+                          {REPORT_REASONS.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                          <option value="custom">Other (specify)</option>
+                        </select>
                       </div>
-                      <div className="flex gap-2 mt-2">
+
+                      {isReasonCustom && (
+                        <div>
+                          <textarea
+                            className="w-full p-2.5 rounded-lg bg-black border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-red-400/50 transition text-sm resize-none"
+                            rows={2}
+                            placeholder="Describe the issue..."
+                            value={customReason}
+                            onChange={(e) => setCustomReason(e.target.value)}
+                            maxLength={MAX_CUSTOM_REASON}
+                            autoFocus
+                          />
+                          <div className="flex justify-end text-[10px] mt-1 font-mono text-gray-600">
+                            <span
+                              className={
+                                customReason.length >= MAX_CUSTOM_REASON
+                                  ? "text-red-400 font-semibold"
+                                  : ""
+                              }
+                            >
+                              {MAX_CUSTOM_REASON - customReason.length} left
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleReport(confession.id)}
                           disabled={
-                            cooldowns[confession.id] ||
-                            submitting[confession.id]
+                            isCoolingDown ||
+                            isSubmitting ||
+                            (isReasonCustom && !customReason.trim())
                           }
-                          className={`flex-1 bg-gradient-to-br from-white via-gray-200 to-gray-400 text-black border border-gray-700 px-3 py-2 rounded-lg font-bold text-xs transition shadow-sm hover:bg-gray-100 hover:text-black ${
-                            cooldowns[confession.id] ||
-                            submitting[confession.id]
-                              ? "opacity-60 cursor-not-allowed"
+                          className={`flex-1 bg-red-600 text-white px-3 py-2 rounded-lg font-mono font-bold text-[11px] uppercase tracking-wide transition shadow-sm hover:bg-red-500 ${
+                            isCoolingDown ||
+                            isSubmitting ||
+                            (isReasonCustom && !customReason.trim())
+                              ? "opacity-50 cursor-not-allowed"
                               : ""
                           }`}
                         >
-                          {cooldowns[confession.id] || submitting[confession.id]
-                            ? "Please wait..."
-                            : "Submit"}
+                          {isCoolingDown || isSubmitting
+                            ? "please wait..."
+                            : "submit"}
                         </button>
                         <button
-                          onClick={() => {
-                            setReportingId(null);
-                            setReason("");
-                          }}
-                          className="flex-1 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white border border-gray-700 px-3 py-2 rounded-lg font-bold text-xs transition shadow-sm hover:bg-gray-900"
+                          onClick={closeReportForm}
+                          className="flex-1 bg-white/5 text-gray-300 border border-white/10 px-3 py-2 rounded-lg font-mono text-[11px] uppercase tracking-wide transition hover:bg-white/10"
                         >
-                          Cancel
+                          cancel
                         </button>
                       </div>
                     </div>
-                  ) : null}
+                  )}
                 </div>
-              ))
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
