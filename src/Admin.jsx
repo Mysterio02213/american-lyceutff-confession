@@ -330,7 +330,7 @@ async function renderConfessionCard(confession) {
     ctx.font = `600 26px ${CARD_FONT_STACK}`;
     ctx.fillStyle = mutedColor;
     ctx.fillText(
-      `— @${confession.instagramUsername}`,
+      `Sent by: @${confession.instagramUsername}`,
       SIZE / 2,
       footerBaseY + 32,
     );
