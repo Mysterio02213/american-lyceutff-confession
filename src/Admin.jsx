@@ -210,13 +210,10 @@ async function renderConfessionCard(confession) {
   drawGlowBlob(ctx, 60, 60, 260, "rgba(140,140,150,0.22)");
   drawGlowBlob(ctx, SIZE - 60, SIZE - 60, 260, "rgba(140,140,150,0.22)");
 
-  // ---- Card geometry (height adapts to how long the confession is) ----
+  // ---- Card geometry setup ----
   const cardX = 76;
-  const cardY = 150;
   const cardW = SIZE - cardX * 2;
   const radius = 36;
-  const MIN_CARD_H = 460;
-  const MAX_CARD_H = SIZE - cardY - 210; // leaves room for branding below
 
   const customColor = confession?.customColor;
   const textColor = customColor ? getContrastTextColor(customColor) : "#f5f5f5";
@@ -228,24 +225,38 @@ async function renderConfessionCard(confession) {
     confession?.instagramUsername && confession?.identityConfirmed;
   const textPaddingX = 72;
   const maxTextWidth = cardW - textPaddingX * 2;
-  const chromeHeight = 128 + (hasUsername ? 170 : 120); // header + footer/caption space
 
-  // First pass: see how tall the message wants to be, then size the card
-  // to fit it (clamped), instead of forcing every confession into one
-  // fixed-size box.
-  const trial = fitMessageText(
+  // ---- Chrome measurements ----
+  const HEADER_H = 88;
+  const TEXT_PAD_Y = 16;
+  const FOOTER_H = hasUsername ? 88 : 52;
+
+  // Minimum card height for a nice proportional / square-ish look
+  const MIN_CARD_H = 560;
+
+  // Max text height when card can grow freely
+  const MAX_TEXT_H = SIZE - cardX * 2 - HEADER_H - FOOTER_H - TEXT_PAD_Y * 2;
+  const MIN_TEXT_H = 40;
+
+  // ---- Single pass: fit text once ----
+  const { lines, fontSize, lineHeight } = fitMessageText(
     ctx,
     confession?.message || "",
     maxTextWidth,
-    MAX_CARD_H - chromeHeight,
-  );
-  const naturalContentHeight = trial.lines.length * trial.lineHeight;
-  const cardH = Math.min(
-    MAX_CARD_H,
-    Math.max(MIN_CARD_H, chromeHeight + naturalContentHeight + 60),
+    MAX_TEXT_H,
   );
 
-  // Card fill
+  // Actual text block height
+  const textBlockH = Math.max(MIN_TEXT_H, lines.length * lineHeight);
+
+  // ---- Card height: natural wrap, but enforce minimum ----
+  const naturalH = HEADER_H + TEXT_PAD_Y + textBlockH + TEXT_PAD_Y + FOOTER_H;
+  const cardH = Math.max(MIN_CARD_H, naturalH);
+
+  // ---- Center card vertically in the 1080 canvas ----
+  const cardY = (SIZE - cardH) / 2;
+
+  // ---- Card fill ----
   ctx.save();
   roundRectPath(ctx, cardX, cardY, cardW, cardH, radius);
   ctx.clip();
@@ -267,7 +278,7 @@ async function renderConfessionCard(confession) {
   ctx.fillRect(cardX, cardY, cardW, cardH);
   ctx.restore();
 
-  // Card border + shadow-ish glow
+  // ---- Card border + shadow ----
   ctx.save();
   ctx.shadowColor = customColor ? `${customColor}55` : "rgba(0,0,0,0.6)";
   ctx.shadowBlur = 40;
@@ -277,58 +288,55 @@ async function renderConfessionCard(confession) {
   ctx.stroke();
   ctx.restore();
 
-  // Header label
+  // ---- Header label ----
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.font = `700 22px ${CARD_FONT_STACK}`;
   ctx.fillStyle = mutedColor;
   if ("letterSpacing" in ctx) ctx.letterSpacing = "4px";
-  ctx.fillText("ANONYMOUS CONFESSION", SIZE / 2, cardY + 66);
+  ctx.fillText("ANONYMOUS CONFESSION", SIZE / 2, cardY + 54);
   if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
 
+  // Divider line
   ctx.strokeStyle = customColor ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.08)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(cardX + 56, cardY + 92);
-  ctx.lineTo(cardX + cardW - 56, cardY + 92);
+  ctx.moveTo(cardX + 56, cardY + HEADER_H);
+  ctx.lineTo(cardX + cardW - 56, cardY + HEADER_H);
   ctx.stroke();
 
-  // Message
-  const textTop = cardY + 128;
-  const textBottom = cardY + cardH - (hasUsername ? 170 : 120);
-  const availableHeight = Math.max(textBottom - textTop, 80);
+  // ---- Message text: centered within the available text area ----
+  const textAreaTop = cardY + HEADER_H + TEXT_PAD_Y;
+  const textAreaBottom = cardY + cardH - FOOTER_H - TEXT_PAD_Y;
+  const textAreaH = textAreaBottom - textAreaTop;
 
-  const { lines, fontSize, lineHeight } = fitMessageText(
-    ctx,
-    confession?.message || "",
-    maxTextWidth,
-    availableHeight,
-  );
+  // Center the text block vertically in the available area
+  const textStartY = textAreaTop + (textAreaH - textBlockH) / 2;
 
   ctx.font = `600 ${fontSize}px ${CARD_FONT_STACK}`;
   ctx.fillStyle = textColor;
-  ctx.textBaseline = "middle";
-  const blockHeight = lines.length * lineHeight;
-  const centerY = textTop + availableHeight / 2;
-  let startY = centerY - blockHeight / 2 + lineHeight / 2;
+  ctx.textBaseline = "top";
+
   lines.forEach((line, i) => {
-    ctx.fillText(line, SIZE / 2, startY + i * lineHeight);
+    ctx.fillText(line, SIZE / 2, textStartY + i * lineHeight);
   });
 
   ctx.textBaseline = "alphabetic";
 
-  // Username caption
+  // ---- Footer ----
+  const footerBaseY = cardY + cardH - FOOTER_H;
+
   if (hasUsername) {
     ctx.font = `600 26px ${CARD_FONT_STACK}`;
     ctx.fillStyle = mutedColor;
     ctx.fillText(
       `— @${confession.instagramUsername}`,
       SIZE / 2,
-      cardY + cardH - 92,
+      footerBaseY + 32,
     );
   }
 
-  // In-card footer: post date instead of the security tagline
+  // Post date
   const postDate = confession?.createdAt
     ? (confession.createdAt.toDate
         ? confession.createdAt.toDate()
@@ -343,17 +351,7 @@ async function renderConfessionCard(confession) {
     : "";
   ctx.font = `500 19px ${CARD_FONT_STACK}`;
   ctx.fillStyle = mutedColor;
-  ctx.fillText(postDate, SIZE / 2, cardY + cardH - 40);
-
-  // Branding below the card, matching the site's gradient header text
-  const brandGrad = ctx.createLinearGradient(
-    SIZE / 2 - 260,
-    0,
-    SIZE / 2 + 260,
-    0,
-  );
-  brandGrad.addColorStop(0, "#ffffff");
-  brandGrad.addColorStop(1, "#9ca3af");
+  ctx.fillText(postDate, SIZE / 2, cardY + cardH - 24);
 
   return canvas;
 }
