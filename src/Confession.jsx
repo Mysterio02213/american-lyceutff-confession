@@ -567,33 +567,44 @@ export default function ConfessionPage() {
             )}
 
             {/* Username / Identity reveal */}
-            <div className="flex items-start gap-3 mb-2 p-3 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-xl border border-white/10 shadow transition-all duration-300 hover:border-white/30 hover:shadow-lg">
+            <div className="flex items-start gap-3 mb-2 p-4 bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-800/80 rounded-xl border-2 border-red-400/25 shadow-lg transition-all duration-300 hover:border-red-400/50">
               <input
                 type="checkbox"
                 id="showIdentity"
                 checked={showIdentity}
                 onChange={(e) => setShowIdentity(e.target.checked)}
-                className="accent-white scale-110 sm:scale-125 mt-1 transition-all duration-200"
+                className="accent-red-400 scale-125 mt-1 transition-all duration-200"
               />
+
               <label
                 htmlFor="showIdentity"
-                className="text-gray-300 text-xs sm:text-sm cursor-pointer flex-1"
+                className="text-gray-300 text-sm cursor-pointer flex-1"
               >
-                <span className="flex items-center gap-2 font-semibold text-white mb-1 tracking-wide">
+                <span className="flex items-center gap-2 font-bold text-white text-base mb-2">
                   {showIdentity ? (
-                    <FaUserCircle className="text-white/80" />
+                    <FaUserCircle className="text-red-300" />
                   ) : (
-                    <FaEyeSlash className="text-white/50" />
+                    <FaEyeSlash className="text-red-300" />
                   )}
-                  Show My Username
+                  Show My Username{" "}
+                  <span className="text-red-600">(Optional)</span>
                 </span>
-                <span className="block text-gray-400">
-                  Add your username so readers know it's from you (optional —
-                  leave this off to stay fully anonymous)
-                </span>
+
+                <div className="rounded-lg border border-red-400/20 bg-red-500/10 p-3">
+                  <p className="text-white font-semibold">
+                    Only enable this if you want your username to appear with
+                    your confession.
+                  </p>
+
+                  <p className="text-gray-300 mt-2 leading-relaxed">
+                    Leaving this <strong>OFF</strong> keeps your confession
+                    completely anonymous. Turn it <strong>ON</strong> only if
+                    you want everyone to know the confession was posted by your
+                    account.
+                  </p>
+                </div>
               </label>
             </div>
-
             {showIdentity && (
               <div className="flex flex-col gap-3 mt-2 mb-2 p-4 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 rounded-xl border border-white/10 shadow animate-[fadeIn_0.25s_ease]">
                 <div>

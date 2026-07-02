@@ -354,13 +354,6 @@ async function renderConfessionCard(confession) {
   );
   brandGrad.addColorStop(0, "#ffffff");
   brandGrad.addColorStop(1, "#9ca3af");
-  ctx.font = `800 30px ${CARD_FONT_STACK}`;
-  ctx.fillStyle = brandGrad;
-  ctx.fillText("American Lycetuff Confessions", SIZE / 2, cardY + cardH + 66);
-
-  ctx.font = `400 20px ${CARD_FONT_STACK}`;
-  ctx.fillStyle = "rgba(255,255,255,0.4)";
-  ctx.fillText("@americanlycetuff_confession", SIZE / 2, cardY + cardH + 100);
 
   return canvas;
 }
