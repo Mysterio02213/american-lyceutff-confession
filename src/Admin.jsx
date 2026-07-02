@@ -14,7 +14,6 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { doc as firestoreDoc } from "firebase/firestore";
-import html2canvas from "html2canvas";
 import { Toaster, toast } from "react-hot-toast";
 import {
   Eye,
@@ -54,6 +53,318 @@ function TruncatedConfession({ text, maxLength = 200 }) {
     </>
   );
 }
+// Picks readable black/white text for any background color, so a light
+// custom color (yellow, pink, white, etc.) never swallows the confession text.
+function getContrastTextColor(hex) {
+  if (!hex) return "#ffffff";
+  let c = hex.replace("#", "");
+  if (c.length === 3)
+    c = c
+      .split("")
+      .map((ch) => ch + ch)
+      .join("");
+  if (c.length !== 6) return "#ffffff";
+  const r = parseInt(c.substr(0, 2), 16);
+  const g = parseInt(c.substr(2, 2), 16);
+  const b = parseInt(c.substr(4, 2), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness >= 150 ? "#111111" : "#ffffff";
+}
+
+// Softer secondary text tone that still reads on either a light or dark
+// custom color, used for the "Sent by" line and captions inside the card.
+function getContrastMutedColor(hex) {
+  return getContrastTextColor(hex) === "#111111"
+    ? "rgba(17,17,17,0.65)"
+    : "rgba(255,255,255,0.75)";
+}
+
+function timeAgo(timestamp) {
+  if (!timestamp) return "";
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// ---------------------------------------------------------------------------
+// Canvas-based, Instagram-ready confession card renderer.
+//
+// This replaces the old html2canvas DOM screenshot (which mangled gradients,
+// backdrop-blur and rounded corners) with a hand-drawn 2D canvas that
+// mirrors the public confession page's dark glass card. It's fully in our
+// control: crisp at high resolution, respects the user's custom color with
+// proper contrast, wraps and auto-sizes long confessions, and needs no
+// visible DOM element to capture.
+// ---------------------------------------------------------------------------
+
+const CARD_FONT_STACK =
+  '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+function wrapTextLines(ctx, text, maxWidth) {
+  const paragraphs = (text || "").split(/\n/);
+  const lines = [];
+  paragraphs.forEach((para) => {
+    if (para.trim() === "") {
+      lines.push("");
+      return;
+    }
+    const words = para.split(" ");
+    let current = "";
+    words.forEach((word) => {
+      let candidate = current ? `${current} ${word}` : word;
+      if (ctx.measureText(candidate).width > maxWidth && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = candidate;
+      }
+      // Break up a single word that's wider than the line on its own.
+      while (ctx.measureText(current).width > maxWidth && current.length > 1) {
+        let i = current.length - 1;
+        while (i > 1 && ctx.measureText(current.slice(0, i)).width > maxWidth) {
+          i--;
+        }
+        lines.push(current.slice(0, i));
+        current = current.slice(i);
+      }
+    });
+    if (current) lines.push(current);
+  });
+  return lines;
+}
+
+// Shrinks the font until the wrapped message fits the available box,
+// down to a readable floor, so a one-line confession and a 1000-char
+// confession both render cleanly instead of overflowing or looking tiny.
+function fitMessageText(ctx, text, maxWidth, maxHeight) {
+  let fontSize = 64;
+  const minFontSize = 26;
+  let lines = [];
+  let lineHeight = 0;
+  while (fontSize >= minFontSize) {
+    ctx.font = `600 ${fontSize}px ${CARD_FONT_STACK}`;
+    lines = wrapTextLines(ctx, text, maxWidth);
+    lineHeight = Math.round(fontSize * 1.45);
+    if (lines.length * lineHeight <= maxHeight) break;
+    fontSize -= 2;
+  }
+  return { lines, fontSize, lineHeight };
+}
+
+function drawGlowBlob(ctx, cx, cy, r, rgba) {
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  g.addColorStop(0, rgba);
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+async function renderConfessionCard(confession) {
+  const SIZE = 1080; // Instagram square
+  const SCALE = 2; // export at 2160x2160 for retina sharpness
+  const canvas = document.createElement("canvas");
+  canvas.width = SIZE * SCALE;
+  canvas.height = SIZE * SCALE;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
+
+  if (typeof document !== "undefined" && document.fonts?.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      /* fall back to default fonts if this fails */
+    }
+  }
+
+  // ---- Page background: same black -> gray-900 -> black wash as the site ----
+  const bg = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+  bg.addColorStop(0, "#000000");
+  bg.addColorStop(0.5, "#121214");
+  bg.addColorStop(1, "#000000");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  drawGlowBlob(ctx, 60, 60, 260, "rgba(140,140,150,0.22)");
+  drawGlowBlob(ctx, SIZE - 60, SIZE - 60, 260, "rgba(140,140,150,0.22)");
+
+  // ---- Card geometry (height adapts to how long the confession is) ----
+  const cardX = 76;
+  const cardY = 150;
+  const cardW = SIZE - cardX * 2;
+  const radius = 36;
+  const MIN_CARD_H = 460;
+  const MAX_CARD_H = SIZE - cardY - 210; // leaves room for branding below
+
+  const customColor = confession?.customColor;
+  const textColor = customColor ? getContrastTextColor(customColor) : "#f5f5f5";
+  const mutedColor = customColor
+    ? getContrastMutedColor(customColor)
+    : "rgba(255,255,255,0.55)";
+
+  const hasUsername =
+    confession?.instagramUsername && confession?.identityConfirmed;
+  const textPaddingX = 72;
+  const maxTextWidth = cardW - textPaddingX * 2;
+  const chromeHeight = 128 + (hasUsername ? 170 : 120); // header + footer/caption space
+
+  // First pass: see how tall the message wants to be, then size the card
+  // to fit it (clamped), instead of forcing every confession into one
+  // fixed-size box.
+  const trial = fitMessageText(
+    ctx,
+    confession?.message || "",
+    maxTextWidth,
+    MAX_CARD_H - chromeHeight,
+  );
+  const naturalContentHeight = trial.lines.length * trial.lineHeight;
+  const cardH = Math.min(
+    MAX_CARD_H,
+    Math.max(MIN_CARD_H, chromeHeight + naturalContentHeight + 60),
+  );
+
+  // Card fill
+  ctx.save();
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, radius);
+  ctx.clip();
+  const cardGrad = ctx.createLinearGradient(
+    cardX,
+    cardY,
+    cardX + cardW,
+    cardY + cardH,
+  );
+  if (customColor) {
+    cardGrad.addColorStop(0, `${customColor}e6`);
+    cardGrad.addColorStop(1, `${customColor}b3`);
+  } else {
+    cardGrad.addColorStop(0, "rgba(24,24,27,0.95)");
+    cardGrad.addColorStop(0.55, "rgba(5,5,5,0.97)");
+    cardGrad.addColorStop(1, "rgba(38,38,42,0.95)");
+  }
+  ctx.fillStyle = cardGrad;
+  ctx.fillRect(cardX, cardY, cardW, cardH);
+  ctx.restore();
+
+  // Card border + shadow-ish glow
+  ctx.save();
+  ctx.shadowColor = customColor ? `${customColor}55` : "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 40;
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, radius);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = customColor ? customColor : "rgba(255,255,255,0.14)";
+  ctx.stroke();
+  ctx.restore();
+
+  // Header label
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `700 22px ${CARD_FONT_STACK}`;
+  ctx.fillStyle = mutedColor;
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "4px";
+  ctx.fillText("ANONYMOUS CONFESSION", SIZE / 2, cardY + 66);
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+
+  ctx.strokeStyle = customColor ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 56, cardY + 92);
+  ctx.lineTo(cardX + cardW - 56, cardY + 92);
+  ctx.stroke();
+
+  // Message
+  const textTop = cardY + 128;
+  const textBottom = cardY + cardH - (hasUsername ? 170 : 120);
+  const availableHeight = Math.max(textBottom - textTop, 80);
+
+  const { lines, fontSize, lineHeight } = fitMessageText(
+    ctx,
+    confession?.message || "",
+    maxTextWidth,
+    availableHeight,
+  );
+
+  ctx.font = `600 ${fontSize}px ${CARD_FONT_STACK}`;
+  ctx.fillStyle = textColor;
+  ctx.textBaseline = "middle";
+  const blockHeight = lines.length * lineHeight;
+  const centerY = textTop + availableHeight / 2;
+  let startY = centerY - blockHeight / 2 + lineHeight / 2;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, SIZE / 2, startY + i * lineHeight);
+  });
+
+  ctx.textBaseline = "alphabetic";
+
+  // Username caption
+  if (hasUsername) {
+    ctx.font = `600 26px ${CARD_FONT_STACK}`;
+    ctx.fillStyle = mutedColor;
+    ctx.fillText(
+      `— @${confession.instagramUsername}`,
+      SIZE / 2,
+      cardY + cardH - 92,
+    );
+  }
+
+  // In-card footer: post date instead of the security tagline
+  const postDate = confession?.createdAt
+    ? (confession.createdAt.toDate
+        ? confession.createdAt.toDate()
+        : new Date(confession.createdAt)
+      ).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "";
+  ctx.font = `500 19px ${CARD_FONT_STACK}`;
+  ctx.fillStyle = mutedColor;
+  ctx.fillText(postDate, SIZE / 2, cardY + cardH - 40);
+
+  // Branding below the card, matching the site's gradient header text
+  const brandGrad = ctx.createLinearGradient(
+    SIZE / 2 - 260,
+    0,
+    SIZE / 2 + 260,
+    0,
+  );
+  brandGrad.addColorStop(0, "#ffffff");
+  brandGrad.addColorStop(1, "#9ca3af");
+  ctx.font = `800 30px ${CARD_FONT_STACK}`;
+  ctx.fillStyle = brandGrad;
+  ctx.fillText("American Lycetuff Confessions", SIZE / 2, cardY + cardH + 66);
+
+  ctx.font = `400 20px ${CARD_FONT_STACK}`;
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.fillText("@americanlycetuff_confession", SIZE / 2, cardY + cardH + 100);
+
+  return canvas;
+}
+
 function DeviceInfoLine({ info }) {
   if (!info) return null;
   const parts = info.split(" | ");
@@ -86,8 +397,8 @@ function DeviceInfoLine({ info }) {
 
 export default function AdminPage() {
   const allowedEmail = "hasnainamironly@gmail.com";
-  const allowedIp = "139.135.60.86";
-  const ADMIN_PASSWORD = "Mysterio@Mysterio"; // Change this!
+  const allowedIp = "153.117.1.52";
+  const ADMIN_PASSWORD = "Mysterio@Mysterio";
 
   const [accessAllowed, setAccessAllowed] = useState(null);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
@@ -96,17 +407,16 @@ export default function AdminPage() {
 
   const [confessions, setConfessions] = useState([]);
   const [selectedConfession, setSelectedConfession] = useState(null);
-  const confessionRef = useRef();
   const [searchTerm, setSearchTerm] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const filterDropdownRef = useRef(null);
-  const [forceFullConfession, setForceFullConfession] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const deleteTimeoutRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editMessage, setEditMessage] = useState("");
+  const [savingImage, setSavingImage] = useState(false);
   const [bannedIps, setBannedIps] = useState([]);
   const [showBannedTab, setShowBannedTab] = useState(false);
   const [isSelectedBanned, setIsSelectedBanned] = useState(false);
@@ -125,7 +435,7 @@ export default function AdminPage() {
     const check = async () => {
       try {
         const docSnap = await getDoc(
-          firestoreDoc(db, "bannedIps", selectedConfession.ipAddress)
+          firestoreDoc(db, "bannedIps", selectedConfession.ipAddress),
         );
         setIsSelectedBanned(!!(docSnap.exists() && docSnap.data().banned));
       } catch {
@@ -190,7 +500,7 @@ export default function AdminPage() {
     if (!selectedConfession) return;
     await deleteDoc(doc(db, "messages", selectedConfession.id));
     setConfessions((prev) =>
-      prev.filter((c) => c.id !== selectedConfession.id)
+      prev.filter((c) => c.id !== selectedConfession.id),
     );
     setSelectedConfession(null);
     toast.success("Confession deleted");
@@ -201,7 +511,7 @@ export default function AdminPage() {
       setDeleteConfirm(true);
       deleteTimeoutRef.current = setTimeout(
         () => setDeleteConfirm(false),
-        3000
+        3000,
       );
     } else {
       clearTimeout(deleteTimeoutRef.current);
@@ -210,57 +520,41 @@ export default function AdminPage() {
     }
   };
 
+  // ---------------------------------------------------------------------
+  // Instagram-ready confession image, drawn entirely with the Canvas 2D
+  // API (no DOM screenshot). This mirrors the dark glassmorphism card
+  // from the public confession page instead of the light admin preview,
+  // so the exported PNG looks the same as what visitors see on the site.
+  // ---------------------------------------------------------------------
   const handleSaveImage = async () => {
-    if (!confessionRef.current) return;
-    setForceFullConfession(true);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    // Get the background color from the confession box
-    let bgColor = "#fff";
-    if (selectedConfession?.customColor) {
-      bgColor = selectedConfession.customColor + "cc";
-    }
-    // Use computed style if needed
-    const computedBg = window.getComputedStyle(
-      confessionRef.current
-    ).background;
-    // html2canvas does not support gradients as backgroundColor, so fallback to solid color
-    const canvas = await html2canvas(confessionRef.current, {
-      backgroundColor: bgColor,
-      scale: 3,
-    });
-    setForceFullConfession(false);
-    const padding = 40;
-    const size = Math.max(canvas.width, canvas.height) + padding * 2;
-    const finalCanvas = document.createElement("canvas");
-    finalCanvas.width = size;
-    finalCanvas.height = size;
-    const ctx = finalCanvas.getContext("2d");
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, size, size);
-    ctx.drawImage(
-      canvas,
-      padding + (size - canvas.width - 2 * padding) / 2,
-      padding + (size - canvas.height - 2 * padding) / 2
-    );
-    const dataUrl = finalCanvas.toDataURL("image/png");
-    const link = document.createElement("a");
-    link.href = dataUrl;
+    if (!selectedConfession) return;
+    setSavingImage(true);
+    try {
+      const canvas = await renderConfessionCard(selectedConfession);
+      const dataUrl = canvas.toDataURL("image/png", 1.0);
+      const link = document.createElement("a");
+      link.href = dataUrl;
 
-    // Get first 2 or 3 words from the confession message for filename
-    let filename = "confession";
-    if (selectedConfession?.message) {
-      const words = selectedConfession.message
-        .replace(/\s+/g, " ")
-        .trim()
-        .split(" ")
-        .slice(0, 3)
-        .join("_")
-        .replace(/[^a-zA-Z0-9_]/g, "");
-      if (words.length > 0) filename = words;
+      let filename = "confession";
+      if (selectedConfession?.message) {
+        const words = selectedConfession.message
+          .replace(/\s+/g, " ")
+          .trim()
+          .split(" ")
+          .slice(0, 3)
+          .join("_")
+          .replace(/[^a-zA-Z0-9_]/g, "");
+        if (words.length > 0) filename = words;
+      }
+      link.download = `${filename}.png`;
+      link.click();
+      toast.success("Image ready — ready to post!");
+    } catch (err) {
+      console.error("Image generation failed:", err);
+      toast.error("Failed to generate image.");
+    } finally {
+      setSavingImage(false);
     }
-    link.download = `${filename}.png`;
-    link.click();
-    toast.success("Image saved");
   };
 
   const handleMarkAsShared = async () => {
@@ -270,8 +564,8 @@ export default function AdminPage() {
     });
     setConfessions((prev) =>
       prev.map((c) =>
-        c.id === selectedConfession.id ? { ...c, status: "shared" } : c
-      )
+        c.id === selectedConfession.id ? { ...c, status: "shared" } : c,
+      ),
     );
     setSelectedConfession({ ...selectedConfession, status: "shared" });
     toast.success("Marked as shared");
@@ -293,7 +587,7 @@ export default function AdminPage() {
     .filter(
       (confession) =>
         confession.message?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        confession.ipAddress?.includes(searchTerm)
+        confession.ipAddress?.includes(searchTerm),
     )
     .filter((confession) => {
       if (statusFilter === "all") return true;
@@ -372,7 +666,7 @@ export default function AdminPage() {
           banned: true,
           bannedAt: new Date(),
           reason,
-        }
+        },
       );
       setIsSelectedBanned(true);
       setShowBanModal(false);
@@ -395,11 +689,11 @@ export default function AdminPage() {
       await setDoc(
         firestoreDoc(db, "bannedIps", selectedConfession.ipAddress),
         { banned: false },
-        { merge: true }
+        { merge: true },
       );
       setIsSelectedBanned(false);
       setBannedIps((prev) =>
-        prev.filter((b) => b.ip !== selectedConfession.ipAddress)
+        prev.filter((b) => b.ip !== selectedConfession.ipAddress),
       );
       toast.success("User/IP unbanned!");
     } catch (err) {
@@ -417,7 +711,7 @@ export default function AdminPage() {
       await setDoc(
         firestoreDoc(db, "bannedIps", ip),
         { banned: false },
-        { merge: true }
+        { merge: true },
       );
       setBannedIps((prev) => prev.filter((b) => b.ip !== ip));
       // If selected confession is this IP, update state
@@ -441,7 +735,7 @@ export default function AdminPage() {
           .map((doc) => ({
             ip: doc.id,
             ...doc.data(),
-          }))
+          })),
       );
     };
     fetchBannedIps();
@@ -518,7 +812,19 @@ export default function AdminPage() {
         style={{ minWidth: 0 }}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Confessions</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-white">Confessions</h2>
+            {confessions.filter((c) => c.status === "not-opened").length >
+              0 && (
+              <span
+                className="bg-white text-black text-xs font-bold rounded-full px-2 py-0.5"
+                title="Not opened yet"
+              >
+                {confessions.filter((c) => c.status === "not-opened").length}{" "}
+                new
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <div className="relative">
               <button
@@ -566,11 +872,24 @@ export default function AdminPage() {
             <div className="relative" ref={filterDropdownRef}>
               <button
                 onClick={() => setShowFilterDropdown((v) => !v)}
-                className="p-2 rounded-lg border bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 focus:outline-none"
-                title="Filter confessions"
+                className={`flex items-center gap-1.5 p-2 rounded-lg border focus:outline-none transition ${
+                  statusFilter !== "all"
+                    ? "bg-white text-black border-white"
+                    : "bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800"
+                }`}
+                title={
+                  statusFilter === "all"
+                    ? "Filter confessions"
+                    : `Filtering: ${statusFilter}`
+                }
                 type="button"
               >
                 <Filter size={18} />
+                {statusFilter !== "all" && (
+                  <span className="text-xs font-semibold capitalize pr-0.5">
+                    {statusFilter}
+                  </span>
+                )}
               </button>
               {showFilterDropdown && (
                 <div className="absolute right-0 mt-2 z-20">
@@ -632,7 +951,7 @@ export default function AdminPage() {
                           ? new Date(
                               ban.bannedAt.seconds
                                 ? ban.bannedAt.seconds * 1000
-                                : ban.bannedAt
+                                : ban.bannedAt,
                             ).toLocaleString()
                           : ""}
                       </div>
@@ -699,48 +1018,93 @@ export default function AdminPage() {
                   No confessions found
                 </div>
               ) : (
-                filteredConfessions.map((confession) => (
-                  <div
-                    key={confession.id}
-                    onClick={() => handleSelect(confession)}
-                    className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border relative
+                filteredConfessions.map((confession) => {
+                  const isSelected = selectedConfession?.id === confession.id;
+                  return (
+                    <div
+                      key={confession.id}
+                      onClick={() => handleSelect(confession)}
+                      className={`cursor-pointer px-4 py-3 rounded-xl text-sm transition-all flex items-start gap-3 border relative
                 ${
-                  selectedConfession?.id === confession.id
+                  isSelected
                     ? "bg-white text-black border-white"
                     : confession.status === "not-opened"
-                    ? "bg-gray-800 border-white text-white"
-                    : confession.status === "shared"
-                    ? "bg-green-900 border-green-400 text-green-200"
-                    : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
+                      ? "bg-gray-800 border-white text-white"
+                      : confession.status === "shared"
+                        ? "bg-green-900 border-green-400 text-green-200"
+                        : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
                 }
               `}
-                  >
-                    {/* Reported dot */}
-                    {confession.reported && (
-                      <span
-                        className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full"
-                        title="Reported"
-                      ></span>
-                    )}
-                    <div className="mt-0.5 shrink-0">
-                      {confession.status === "not-opened" ? (
-                        <Eye className="w-4 h-4" />
-                      ) : confession.status === "shared" ? (
-                        <Check className="w-4 h-4 text-green-300" />
-                      ) : (
-                        <FileText className="w-4 h-4" />
+                      style={
+                        confession.customColor
+                          ? {
+                              borderLeft: `4px solid ${confession.customColor}`,
+                            }
+                          : undefined
+                      }
+                    >
+                      {/* Reported dot */}
+                      {confession.reported && (
+                        <span
+                          className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-black/40"
+                          title="Reported"
+                        ></span>
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="font-medium whitespace-pre-wrap break-words break-all max-w-full overflow-hidden line-clamp-2">
-                        {confession.message || "Confession"}
+                      <div className="mt-0.5 shrink-0 flex flex-col items-center gap-1.5">
+                        {confession.status === "not-opened" ? (
+                          <Eye className="w-4 h-4" />
+                        ) : confession.status === "shared" ? (
+                          <Check className="w-4 h-4 text-green-300" />
+                        ) : (
+                          <FileText className="w-4 h-4" />
+                        )}
+                        {confession.customColor && (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full border border-white/30 shrink-0"
+                            style={{ background: confession.customColor }}
+                            title={`Custom color: ${confession.customColor}`}
+                          />
+                        )}
                       </div>
-                      <div className="text-xs mt-1">
-                        {formatTimestamp(confession.createdAt)}
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="font-medium whitespace-pre-wrap break-words break-all max-w-full overflow-hidden line-clamp-2">
+                          {confession.message || "Confession"}
+                        </div>
+                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1.5">
+                          <span
+                            className="text-xs opacity-80"
+                            title={formatTimestamp(confession.createdAt)}
+                          >
+                            {timeAgo(confession.createdAt)}
+                          </span>
+                          {confession.instagramUsername &&
+                            confession.identityConfirmed && (
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                                  isSelected
+                                    ? "border-black/20 text-black/70"
+                                    : "border-white/20 text-gray-300"
+                                }`}
+                              >
+                                @{confession.instagramUsername}
+                              </span>
+                            )}
+                          {confession.status === "not-opened" && (
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                isSelected
+                                  ? "bg-black/10 text-black"
+                                  : "bg-white/10 text-white"
+                              }`}
+                            >
+                              NEW
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </>
@@ -788,7 +1152,7 @@ export default function AdminPage() {
                           <li key={idx} className="break-words">
                             {reason}
                           </li>
-                        )
+                        ),
                       )}
                     </ul>
                     <button
@@ -799,7 +1163,7 @@ export default function AdminPage() {
                             reported: false,
                             reports: 0,
                             reportReasons: [],
-                          }
+                          },
                         );
                         setConfessions((prev) =>
                           prev.map((c) =>
@@ -810,8 +1174,8 @@ export default function AdminPage() {
                                   reports: 0,
                                   reportReasons: [],
                                 }
-                              : c
-                          )
+                              : c,
+                          ),
                         );
                         setSelectedConfession({
                           ...selectedConfession,
@@ -831,7 +1195,6 @@ export default function AdminPage() {
             )}
             {/* Confession Box */}
             <div
-              ref={confessionRef}
               className="relative w-full max-w-2xl mx-auto px-0 md:px-8"
               style={{
                 padding: "0",
@@ -849,7 +1212,9 @@ export default function AdminPage() {
                   background: selectedConfession?.customColor
                     ? `linear-gradient(120deg, ${selectedConfession.customColor}cc 0%, ${selectedConfession.customColor}99 100%)`
                     : "#fff",
-                  color: selectedConfession?.customColor ? "#fff" : "#111",
+                  color: selectedConfession?.customColor
+                    ? getContrastTextColor(selectedConfession.customColor)
+                    : "#111",
                   boxShadow: selectedConfession?.customColor
                     ? `0 8px 32px 0 ${selectedConfession.customColor}33`
                     : "0 8px 32px 0 #1112",
@@ -871,7 +1236,9 @@ export default function AdminPage() {
                   className="py-6 px-6 font-extrabold text-center text-2xl border-b"
                   style={{
                     borderColor: "transparent",
-                    color: selectedConfession?.customColor ? "#fff" : "#111",
+                    color: selectedConfession?.customColor
+                      ? getContrastTextColor(selectedConfession.customColor)
+                      : "#111",
                     fontFamily: "Montserrat, Arial, sans-serif",
                     letterSpacing: "0.08em",
                     background: selectedConfession?.customColor
@@ -893,7 +1260,9 @@ export default function AdminPage() {
                 <div
                   className="relative px-6 py-8 text-center font-semibold whitespace-pre-wrap break-words flex-1"
                   style={{
-                    color: selectedConfession?.customColor ? "#fff" : "#111",
+                    color: selectedConfession?.customColor
+                      ? getContrastTextColor(selectedConfession.customColor)
+                      : "#111",
                     fontSize: "1.15rem",
                     textShadow: selectedConfession?.customColor
                       ? "0 2px 12px #000c"
@@ -932,14 +1301,14 @@ export default function AdminPage() {
                               doc(db, "messages", selectedConfession.id),
                               {
                                 message: editMessage,
-                              }
+                              },
                             );
                             setConfessions((prev) =>
                               prev.map((c) =>
                                 c.id === selectedConfession.id
                                   ? { ...c, message: editMessage }
-                                  : c
-                              )
+                                  : c,
+                              ),
                             );
                             setSelectedConfession({
                               ...selectedConfession,
@@ -965,16 +1334,12 @@ export default function AdminPage() {
                   ) : (
                     <>
                       <p className="text-xl leading-relaxed">
-                        {forceFullConfession ? (
-                          selectedConfession.message
-                        ) : (
-                          <TruncatedConfession
-                            text={selectedConfession.message}
-                            maxLength={200}
-                          />
-                        )}
+                        <TruncatedConfession
+                          text={selectedConfession.message}
+                          maxLength={200}
+                        />
                       </p>
-                      {/* Instagram Username Info */}
+                      {/* Username Info */}
                       {selectedConfession.instagramUsername &&
                         selectedConfession.identityConfirmed && (
                           <div
@@ -983,9 +1348,11 @@ export default function AdminPage() {
                               fontWeight: 500,
                               letterSpacing: "0.02em",
                               color: selectedConfession?.customColor
-                                ? "#e0e6f0"
+                                ? getContrastMutedColor(
+                                    selectedConfession.customColor,
+                                  )
                                 : "#888",
-                              opacity: 0.8,
+                              opacity: 0.9,
                               textShadow: selectedConfession?.customColor
                                 ? "0 1px 8px #0004, 1px 1px 0 #222"
                                 : "none",
@@ -993,17 +1360,19 @@ export default function AdminPage() {
                             }}
                           >
                             Sent by:{" "}
-                            {isEditing || forceFullConfession ? (
+                            {isEditing ? (
                               `@${selectedConfession.instagramUsername}`
                             ) : (
                               <a
                                 href={`https://instagram.com/${selectedConfession.instagramUsername}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="underline hover:text-blue-400 transition"
+                                className="underline hover:opacity-80 transition"
                                 style={{
                                   color: selectedConfession?.customColor
-                                    ? "#e0e6f0"
+                                    ? getContrastMutedColor(
+                                        selectedConfession.customColor,
+                                      )
                                     : "#888",
                                   textShadow: selectedConfession?.customColor
                                     ? "0 1px 8px #0004, 1px 1px 0 #222"
@@ -1018,8 +1387,8 @@ export default function AdminPage() {
                     </>
                   )}
 
-                  {/* Edit button: only show when not editing and not saving image */}
-                  {!isEditing && !forceFullConfession && (
+                  {/* Edit button: only show when not editing */}
+                  {!isEditing && (
                     <button
                       className="absolute top-4 right-4 p-3 rounded-full bg-white/90 hover:bg-blue-100 border border-gray-400 shadow-lg focus:outline-none transition z-10"
                       style={{ boxShadow: "0 2px 12px 0 #0008" }}
@@ -1124,10 +1493,11 @@ export default function AdminPage() {
             <div className="w-full max-w-2xl flex flex-wrap justify-center gap-3 z-20">
               <button
                 onClick={handleSaveImage}
-                className="flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-black hover:bg-gray-100 font-medium transition-all w-full sm:w-auto min-w-[140px]"
+                disabled={savingImage}
+                className="flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-black hover:bg-gray-100 font-medium transition-all w-full sm:w-auto min-w-[140px] disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Download size={18} />
-                Save as Image
+                {savingImage ? "Generating..." : "Save as Image"}
               </button>
 
               <button
