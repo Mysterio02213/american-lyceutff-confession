@@ -26,6 +26,8 @@ import {
   FaEyeSlash,
   FaSun,
   FaMoon,
+  FaImage,
+  FaTimesCircle,
 } from "react-icons/fa";
 import axios from "axios";
 import { UAParser } from "ua-parser-js";
@@ -41,6 +43,86 @@ const THEME_STORAGE_KEY = "confessionTheme";
 const MAX_USERNAME_LENGTH = 30;
 // Instagram-style handle: letters, numbers, periods, underscores.
 const USERNAME_PATTERN = /^[a-zA-Z0-9._]{1,30}$/;
+
+// ---------------------------------------------------------------------------
+// Image attachment (optional, up to MAX_IMAGES per confession). Images are
+// hosted on ImgBB — no server of our own is needed. Requires a free API key
+// from https://api.imgbb.com/ set as VITE_IMGBB_API_KEY in your .env file.
+//
+// There is no automated nudity/NSFW filter here by design (per product
+// decision) — every uploaded image is reviewed manually by an admin in the
+// dashboard before being shared, and admins can remove an image or ban the
+// sender at any time.
+//
+// Security notes:
+// - We deliberately never pass an `album` parameter to ImgBB. Without one,
+//   uploads get random unguessable URLs and are NOT listed on any public
+//   gallery/album page — there is no "browse everything this key has
+//   uploaded" page an outsider could stumble onto or share a link to.
+// - Each image's one-time `delete_url` is stored in Firestore and only ever
+//   surfaced in the Admin dashboard — it is never sent to or rendered on
+//   the public confession page, so a regular visitor has no way to delete
+//   or discover it.
+// - The API key itself is compiled into the client bundle (unavoidable for
+//   a backend-less app) and is technically visible to anyone who inspects
+//   network requests or the built JS. That's a real limit of this
+//   architecture: it lets someone with the key upload to your ImgBB
+//   account directly, bypassing this form's size/type limits, but it does
+//   NOT let them list, browse, or delete your existing images (ImgBB's
+//   public upload API has no "list my uploads" endpoint). If you need the
+//   key fully hidden and abuse-proof, the key would need to move behind a
+//   small serverless proxy (e.g. a Firebase Cloud Function) that we don't
+//   currently have — ask if you'd like that added.
+// ---------------------------------------------------------------------------
+const IMGBB_API_KEY = import.meta.env.VITE_IMGBB_API_KEY;
+const MAX_IMAGE_MB = 50;
+const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
+const MAX_IMAGES = 3;
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+// NOTE: ImgBB's own API caps uploads at 32MB per image regardless of this
+// constant — a 100MB file will be accepted by this form but rejected by
+// ImgBB with an upload error at submit time. Lower this if you'd rather
+// reject oversized files immediately instead of after a slow upload attempt.
+
+/**
+ * Uploads a single image file to ImgBB and returns its public URL plus the
+ * one-time delete URL ImgBB issues (kept so an admin can wipe it from the
+ * host entirely, not just hide it in our own dashboard).
+ */
+async function uploadImageToImgbb(file) {
+  if (!IMGBB_API_KEY) {
+    throw new Error(
+      "Image hosting isn't configured. Set VITE_IMGBB_API_KEY to enable image uploads.",
+    );
+  }
+
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () =>
+      reject(new Error("Could not read the selected image."));
+    reader.readAsDataURL(file);
+  });
+
+  const formData = new FormData();
+  formData.append("key", IMGBB_API_KEY);
+  formData.append("image", base64);
+
+  const res = await axios.post("https://api.imgbb.com/1/upload", formData);
+  const data = res.data?.data;
+  if (!data?.url) {
+    throw new Error("Image upload failed. Please try again.");
+  }
+  return {
+    url: data.url,
+    deleteUrl: data.delete_url || null,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Profanity filter — built once, reused on every keystroke/submit instead of
@@ -266,6 +348,16 @@ export default function ConfessionPage() {
   const [formError, setFormError] = useState("");
   const usernameInputRef = useRef(null);
 
+  // Image attachment state — an array of { id, file, previewUrl }, up to
+  // MAX_IMAGES entries. Using an id (not array index) as the React key and
+  // for removal means removing image #1 can never accidentally target the
+  // wrong entry after the array shifts.
+  const [attachedImages, setAttachedImages] = useState([]);
+  const [imageError, setImageError] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const imageInputRef = useRef(null);
+  const nextImageId = useRef(0);
+
   const wordCount = useMemo(() => {
     const trimmed = message.trim();
     return trimmed ? trimmed.split(/\s+/).length : 0;
@@ -304,6 +396,70 @@ export default function ConfessionPage() {
       : showIdentity && usernameTouched && !usernameIsValid
         ? "Letters, numbers, periods and underscores only."
         : "";
+
+  // Validates and previews chosen image(s); the actual upload happens on
+  // submit so a user can change their mind without wasting an upload.
+  // Accepts as many of the newly-picked files as fit under MAX_IMAGES,
+  // and reports how many (if any) had to be skipped and why.
+  const handleImageSelect = useCallback((e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = ""; // allow re-selecting the same file later
+    if (files.length === 0) return;
+
+    setAttachedImages((prev) => {
+      const remainingSlots = MAX_IMAGES - prev.length;
+      if (remainingSlots <= 0) {
+        setImageError(`You can attach up to ${MAX_IMAGES} images.`);
+        return prev;
+      }
+
+      const accepted = [];
+      let skippedForType = false;
+      let skippedForSize = false;
+      let skippedForLimit = false;
+
+      for (const file of files) {
+        if (accepted.length >= remainingSlots) {
+          skippedForLimit = true;
+          break;
+        }
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          skippedForType = true;
+          continue;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+          skippedForSize = true;
+          continue;
+        }
+        accepted.push({
+          id: nextImageId.current++,
+          file,
+          previewUrl: URL.createObjectURL(file),
+        });
+      }
+
+      if (skippedForType) {
+        setImageError("Only JPG, PNG, WEBP or GIF images are allowed.");
+      } else if (skippedForSize) {
+        setImageError(`Each image must be under ${MAX_IMAGE_MB}MB.`);
+      } else if (skippedForLimit) {
+        setImageError(`You can attach up to ${MAX_IMAGES} images.`);
+      } else if (accepted.length > 0) {
+        setImageError("");
+      }
+
+      return accepted.length > 0 ? [...prev, ...accepted] : prev;
+    });
+  }, []);
+
+  const removeImage = useCallback((id) => {
+    setAttachedImages((prev) => {
+      const target = prev.find((img) => img.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((img) => img.id !== id);
+    });
+    setImageError("");
+  }, []);
 
   useEffect(() => {
     if (showIdentity) {
@@ -368,6 +524,12 @@ export default function ConfessionPage() {
     setUsername("");
     setIdentityConfirmed(false);
     setUsernameTouched(false);
+    setAttachedImages((prev) => {
+      prev.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      return [];
+    });
+    setImageError("");
+    if (imageInputRef.current) imageInputRef.current.value = "";
   }, []);
 
   const handleSubmit = useCallback(
@@ -411,6 +573,27 @@ export default function ConfessionPage() {
 
       setLoading(true);
       try {
+        let uploadedImages = [];
+
+        if (attachedImages.length > 0) {
+          setImageUploading(true);
+          try {
+            uploadedImages = await Promise.all(
+              attachedImages.map((img) => uploadImageToImgbb(img.file)),
+            );
+          } catch (imgErr) {
+            console.error("Image upload failed:", imgErr);
+            setFormError(
+              imgErr?.message ||
+                "Failed to upload one of your images. Remove it or try again.",
+            );
+            setImageUploading(false);
+            setLoading(false);
+            return;
+          }
+          setImageUploading(false);
+        }
+
         await addDoc(collection(db, "messages"), {
           message,
           createdAt: Timestamp.now(),
@@ -422,8 +605,15 @@ export default function ConfessionPage() {
           // backward compatibility with the Admin dashboard.
           instagramUsername: showIdentity ? username.trim() : null,
           identityConfirmed: showIdentity ? identityConfirmed : false,
+          images: uploadedImages,
         });
-        await sendToDiscord(message);
+        await sendToDiscord(
+          uploadedImages.length > 0
+            ? `${message}\n\n[${uploadedImages.length} image(s) attached: ${uploadedImages
+                .map((img) => img.url)
+                .join(", ")}]`
+            : message,
+        );
         localStorage.setItem("lastConfessionTime", now.toString());
         setSuccess(true);
         resetForm();
@@ -444,6 +634,7 @@ export default function ConfessionPage() {
       deviceInfo,
       customColorEnabled,
       customColor,
+      attachedImages,
       resetForm,
     ],
   );
@@ -464,13 +655,14 @@ export default function ConfessionPage() {
   }, [success, cooldownError, profanityError]);
 
   const canSubmit = useMemo(() => {
-    if (loading || !agreed || !message.trim()) return false;
+    if (loading || imageUploading || !agreed || !message.trim()) return false;
     if (showIdentity && (!usernameIsValid || !username || !identityConfirmed)) {
       return false;
     }
     return true;
   }, [
     loading,
+    imageUploading,
     agreed,
     message,
     showIdentity,
@@ -725,6 +917,91 @@ export default function ConfessionPage() {
                   </div>
                 </div>
               )}
+
+              {/* Image attachment */}
+              <div
+                className={`p-3 sm:p-4 rounded-xl border shadow transition-all duration-300 ${
+                  isDark
+                    ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 hover:border-white/30 hover:shadow-lg"
+                    : "bg-slate-50 border-black/10 hover:border-black/20 hover:shadow-lg"
+                }`}
+              >
+                <span
+                  className={`flex items-center gap-2 font-semibold mb-2 text-sm sm:text-base ${
+                    isDark ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  <FaImage
+                    className={isDark ? "text-gray-300" : "text-slate-600"}
+                  />
+                  Attach Images{" "}
+                  <span className="font-normal text-gray-500">
+                    (optional, up to {MAX_IMAGES})
+                  </span>
+                </span>
+
+                <input
+                  ref={imageInputRef}
+                  id="confessionImage"
+                  type="file"
+                  accept={ALLOWED_IMAGE_TYPES.join(",")}
+                  multiple
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  {attachedImages.map((img) => (
+                    <div key={img.id} className="relative aspect-square">
+                      <img
+                        src={img.previewUrl}
+                        alt="Selected attachment preview"
+                        className="w-full h-full rounded-lg border border-white/10 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(img.id)}
+                        className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-lg transition"
+                        aria-label="Remove image"
+                        title="Remove image"
+                      >
+                        <FaTimesCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {attachedImages.length < MAX_IMAGES && (
+                    <label
+                      htmlFor="confessionImage"
+                      className={`flex flex-col items-center justify-center gap-1 aspect-square cursor-pointer border border-dashed rounded-lg text-[11px] sm:text-xs text-center px-1 transition ${
+                        isDark
+                          ? "border-white/20 text-gray-400 hover:border-white/40 hover:text-gray-200"
+                          : "border-black/20 text-slate-500 hover:border-black/40 hover:text-slate-700"
+                      }`}
+                    >
+                      <FaImage className="text-base" />
+                      Add image
+                    </label>
+                  )}
+                </div>
+
+                {imageError && (
+                  <p className="mt-2 text-xs text-red-400 font-semibold">
+                    {imageError}
+                  </p>
+                )}
+
+                <p
+                  className={`mt-2 text-[11px] leading-relaxed ${
+                    isDark ? "text-red-400" : "text-slate-500"
+                  }`}
+                >
+                  Up to {MAX_IMAGES} images, {MAX_IMAGE_MB}MB each. Images are
+                  reviewed by our team before being shared. Do not upload
+                  nudity, gore, or anything illegal — violators will be
+                  permanently banned.
+                </p>
+              </div>
 
               {/* Username / Identity reveal */}
               <div
@@ -988,7 +1265,7 @@ export default function ConfessionPage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    Sending...
+                    {imageUploading ? "Uploading image..." : "Sending..."}
                   </>
                 ) : (
                   <>

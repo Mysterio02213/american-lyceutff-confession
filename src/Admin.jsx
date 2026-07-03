@@ -35,6 +35,8 @@ import {
   MessageSquare,
   ChevronDown,
   Users,
+  Image as ImageIcon,
+  ImageOff,
 } from "lucide-react";
 
 function TruncatedConfession({ text, maxLength = 200 }) {
@@ -590,6 +592,109 @@ export default function AdminPage() {
     );
     setSelectedConfession({ ...selectedConfession, status: "shared" });
     toast.success("Marked as shared");
+  };
+
+  // ---------------------------------------------------------------------
+  // Attached images (the ones the user uploaded with their confession, not
+  // the generated share card above). Confessions can carry 0-3 images.
+  //
+  // Normalizes both the current `images: [{url, deleteUrl}]` array field
+  // and the older single `imageUrl`/`imageDeleteUrl` fields (from
+  // confessions submitted before multi-image support) into one shape, so
+  // every render path only ever has to deal with an array.
+  // ---------------------------------------------------------------------
+  const getConfessionImages = (confession) => {
+    if (!confession) return [];
+    if (Array.isArray(confession.images)) {
+      return confession.images.filter((img) => img && img.url);
+    }
+    if (confession.imageUrl) {
+      return [
+        {
+          url: confession.imageUrl,
+          deleteUrl: confession.imageDeleteUrl || null,
+        },
+      ];
+    }
+    return [];
+  };
+
+  // Downloading pulls the actual bytes so it saves locally instead of just
+  // opening a tab; if the host doesn't allow cross-origin fetches we fall
+  // back to opening the image directly.
+  const handleDownloadImage = async (image, index) => {
+    if (!image?.url || !selectedConfession) return;
+    try {
+      const response = await fetch(image.url, { mode: "cors" });
+      if (!response.ok) throw new Error("Bad response");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      const ext = blob.type.split("/")[1]?.split("+")[0] || "jpg";
+      link.download = `confession-image-${selectedConfession.id}-${index + 1}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Direct image download failed, opening tab instead:", err);
+      window.open(image.url, "_blank", "noopener,noreferrer");
+      toast("Opened the image in a new tab — right-click it to save.", {
+        icon: "🖼️",
+      });
+    }
+  };
+
+  // Moderation action: strips a single image from this confession, live —
+  // updates Firestore, the sidebar list, and the open detail panel in the
+  // same call so nothing needs a refresh. Also opens ImgBB's one-time
+  // delete page (when we have it) so the admin can confirm removal from
+  // the host itself, not just from our own dashboard.
+  const handleRemoveImage = async (index) => {
+    if (!selectedConfession) return;
+    const currentImages = getConfessionImages(selectedConfession);
+    const target = currentImages[index];
+    if (!target) return;
+
+    const nextImages = currentImages.filter((_, i) => i !== index);
+
+    try {
+      await updateDoc(doc(db, "messages", selectedConfession.id), {
+        images: nextImages,
+        // Clear the legacy single-image fields too, since `images` is now
+        // the single source of truth going forward.
+        imageUrl: deleteField(),
+        imageDeleteUrl: deleteField(),
+        imageRemoved: nextImages.length === 0 ? true : deleteField(),
+      });
+
+      if (target.deleteUrl) {
+        window.open(target.deleteUrl, "_blank", "noopener,noreferrer");
+      }
+
+      const patch = {
+        images: nextImages,
+        imageUrl: null,
+        imageDeleteUrl: null,
+        imageRemoved: nextImages.length === 0,
+      };
+      setConfessions((prev) =>
+        prev.map((c) =>
+          c.id === selectedConfession.id ? { ...c, ...patch } : c,
+        ),
+      );
+      setSelectedConfession((prev) => (prev ? { ...prev, ...patch } : prev));
+
+      toast.success(
+        nextImages.length === 0
+          ? "Image removed."
+          : `Image removed — ${nextImages.length} left.`,
+      );
+    } catch (err) {
+      console.error("Failed to remove image:", err);
+      toast.error("Failed to remove image.");
+    }
   };
 
   const formatTimestamp = (timestamp) => {
@@ -1264,6 +1369,20 @@ export default function AdminPage() {
                                     @{confession.instagramUsername}
                                   </span>
                                 )}
+                              {getConfessionImages(confession).length > 0 && (
+                                <span
+                                  className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border ${
+                                    isSelected
+                                      ? "border-black/20 text-black/70"
+                                      : "border-white/20 text-gray-300"
+                                  }`}
+                                >
+                                  <ImageIcon className="w-3 h-3" />
+                                  {getConfessionImages(confession).length > 1
+                                    ? `${getConfessionImages(confession).length} Images`
+                                    : "Image"}
+                                </span>
+                              )}
                               {confession.status === "not-opened" && (
                                 <span
                                   className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
@@ -1611,6 +1730,31 @@ export default function AdminPage() {
                               )}
                             </div>
                           )}
+                        {/* Image-attached indicator — stays in sync with
+                            the live image count, so it disappears the
+                            moment the last image is removed below. */}
+                        {getConfessionImages(selectedConfession).length > 0 && (
+                          <div
+                            className="mt-4 flex items-center justify-center gap-1.5 text-sm font-semibold"
+                            style={{
+                              color: selectedConfession?.customColor
+                                ? getContrastMutedColor(
+                                    selectedConfession.customColor,
+                                  )
+                                : "#94a3b8",
+                              textShadow: selectedConfession?.customColor
+                                ? getContrastTextShadow(
+                                    selectedConfession.customColor,
+                                  )
+                                : "none",
+                            }}
+                          >
+                            <ImageIcon size={15} className="opacity-80" />
+                            {getConfessionImages(selectedConfession).length > 1
+                              ? `${getConfessionImages(selectedConfession).length} images attached`
+                              : "Image attached"}
+                          </div>
+                        )}
                       </>
                     )}
 
@@ -1743,6 +1887,64 @@ export default function AdminPage() {
                       )}
                     </div>
                   </details>
+                )}
+
+                {/* Attached Images (the ones the user uploaded) — a live
+                    gallery, so removing one immediately re-renders with the
+                    rest and the count everywhere else (list badge, "Sent
+                    by" area) updates along with it. */}
+                {getConfessionImages(selectedConfession).length > 0 && (
+                  <div className="w-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-4 flex flex-col items-center gap-3">
+                    <div className="w-full flex items-center gap-2 text-xs font-semibold text-gray-300">
+                      <ImageIcon size={14} className="opacity-70" />
+                      {getConfessionImages(selectedConfession).length > 1
+                        ? `${getConfessionImages(selectedConfession).length} Attached Images — review before sharing`
+                        : "Attached Image — review before sharing"}
+                    </div>
+
+                    <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {getConfessionImages(selectedConfession).map(
+                        (image, index) => (
+                          <div
+                            key={image.url}
+                            className="flex flex-col items-center gap-2"
+                          >
+                            <img
+                              src={image.url}
+                              alt={`Attachment ${index + 1}`}
+                              className="max-h-56 w-full rounded-xl border border-white/10 object-contain bg-black/30"
+                            />
+                            <div className="w-full flex flex-col gap-2">
+                              <button
+                                onClick={() =>
+                                  handleDownloadImage(image, index)
+                                }
+                                className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full border border-gray-300 bg-white text-black hover:bg-gray-100 text-xs font-medium transition-all"
+                              >
+                                <Download size={14} />
+                                Download
+                              </button>
+                              <button
+                                onClick={() => handleRemoveImage(index)}
+                                className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full border border-red-700 bg-red-900 hover:bg-red-800 text-white text-xs font-medium transition-all"
+                              >
+                                <ImageOff size={14} />
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ),
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-gray-500 text-center leading-relaxed">
+                      Check each image for nudity, gore, or illegal content
+                      before marking this confession as shared. "Remove"
+                      instantly deletes that image from this dashboard and the
+                      public link, and opens the host's delete page (when
+                      available) so you can wipe it permanently.
+                    </p>
+                  </div>
                 )}
 
                 {/* Action buttons */}
