@@ -1960,7 +1960,7 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    <p className="text-[11px] text-gray-500 text-center leading-relaxed">
+                    <p className="text-[11px] text-gray-300 text-center leading-relaxed">
                       Check each image for nudity, gore, or illegal content
                       before marking this confession as shared. "Remove"
                       instantly deletes that image from this dashboard and the
