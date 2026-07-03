@@ -40,6 +40,7 @@ const MAX_WORDS = 1000;
 // single "word"), not the primary limit users interact with.
 const SOFT_CHAR_CAP = 8000;
 const THEME_STORAGE_KEY = "confessionTheme";
+const DRAFT_STORAGE_KEY = "confessionDraft";
 const MAX_USERNAME_LENGTH = 30;
 // Instagram-style handle: letters, numbers, periods, underscores.
 const USERNAME_PATTERN = /^[a-zA-Z0-9._]{1,30}$/;
@@ -282,6 +283,7 @@ function Toast({ tone, icon, children, visible, dark = true }) {
 function WordCounter({ current, max, dark }) {
   const remaining = max - current;
   const low = remaining <= max * 0.1;
+  const empty = current === 0;
   const pct = Math.min(100, (current / max) * 100);
 
   return (
@@ -299,7 +301,7 @@ function WordCounter({ current, max, dark }) {
         />
       </div>
       <div
-        className={`text-xs font-mono px-2 py-1 rounded border shadow-sm whitespace-nowrap ${
+        className={`text-xs font-mono px-2 py-1 rounded border shadow-sm whitespace-nowrap transition-colors duration-300 ${
           low
             ? "text-amber-400 border-amber-400/30 bg-amber-400/10"
             : dark
@@ -307,9 +309,149 @@ function WordCounter({ current, max, dark }) {
               : "text-slate-600 border-black/10 bg-white/80"
         }`}
       >
-        {remaining} words left
+        {empty ? `${max} words max` : `${remaining} words left`}
       </div>
     </div>
+  );
+}
+
+/**
+ * Collapsible "extra" section — used to group the optional Custom Color,
+ * Attach Images and Show Username blocks so the form doesn't dump every
+ * option on the user at once. Opening one is a deliberate choice, and a
+ * small badge shows at a glance whether that extra is currently active.
+ */
+function Accordion({
+  id,
+  icon,
+  title,
+  subtitle,
+  active,
+  open,
+  onToggle,
+  dark,
+  children,
+}) {
+  return (
+    <div
+      className={`rounded-xl border shadow transition-all duration-300 overflow-hidden ${
+        dark
+          ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 hover:border-white/25"
+          : "bg-slate-50 border-black/10 hover:border-black/20"
+      } ${open ? (dark ? "border-white/30 shadow-lg" : "border-black/25 shadow-lg") : ""}`}
+    >
+      <button
+        type="button"
+        id={`${id}-trigger`}
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={`${id}-panel`}
+        className="w-full flex items-center gap-3 p-3 sm:p-4 text-left"
+      >
+        <span
+          className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 transition-colors ${
+            active
+              ? "bg-emerald-500/20 text-emerald-400"
+              : dark
+                ? "bg-white/5 text-gray-300"
+                : "bg-black/5 text-slate-600"
+          }`}
+        >
+          {icon}
+        </span>
+        <span className="flex-1 min-w-0">
+          <span
+            className={`flex items-center gap-2 font-semibold text-sm sm:text-base ${
+              dark ? "text-white" : "text-slate-900"
+            }`}
+          >
+            {title}
+            {active && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                <FaCheckCircle className="w-2.5 h-2.5" /> On
+              </span>
+            )}
+          </span>
+          <span
+            className={`block text-xs mt-0.5 truncate ${
+              dark ? "text-gray-400" : "text-slate-500"
+            }`}
+          >
+            {subtitle}
+          </span>
+        </span>
+        <svg
+          className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
+            open ? "rotate-180" : ""
+          } ${dark ? "text-gray-400" : "text-slate-500"}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+      <div
+        id={`${id}-panel`}
+        role="region"
+        aria-labelledby={`${id}-trigger`}
+        className={`grid transition-all duration-300 ease-in-out ${
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-3 sm:px-4 pb-4">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Small line item used in the "what's left to do" submit checklist. */
+function ChecklistItem({ done, children }) {
+  return (
+    <li className="flex items-center gap-2">
+      {done ? (
+        <FaCheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+      ) : (
+        <span className="w-3.5 h-3.5 rounded-full border-2 border-current opacity-50 shrink-0" />
+      )}
+      <span className={done ? "line-through opacity-60" : ""}>{children}</span>
+    </li>
+  );
+}
+
+/** iOS-style toggle switch, used wherever an on/off checkbox deserves more
+ * visual weight than a plain checkbox (e.g. a decision with real stakes). */
+function ToggleSwitch({
+  checked,
+  onChange,
+  id,
+  dark,
+  activeClass = "bg-red-500",
+}) {
+  return (
+    <button
+      type="button"
+      id={id}
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 ${
+        checked ? activeClass : dark ? "bg-white/15" : "bg-black/15"
+      }`}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
+          checked ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
   );
 }
 
@@ -348,6 +490,19 @@ export default function ConfessionPage() {
   const [formError, setFormError] = useState("");
   const usernameInputRef = useRef(null);
 
+  // Which "extra" accordion panel is open (only one at a time keeps the
+  // form calm). null = all collapsed.
+  const [openExtra, setOpenExtra] = useState(null);
+  const toggleExtra = useCallback((key) => {
+    setOpenExtra((prev) => (prev === key ? null : key));
+  }, []);
+
+  // Draft autosave: restores the confession text if the tab was closed or
+  // refreshed mid-write, so a half-typed confession is never silently lost.
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
   // Image attachment state — an array of { id, file, previewUrl }, up to
   // MAX_IMAGES entries. Using an id (not array index) as the React key and
   // for removal means removing image #1 can never accidentally target the
@@ -361,6 +516,34 @@ export default function ConfessionPage() {
   const wordCount = useMemo(() => {
     const trimmed = message.trim();
     return trimmed ? trimmed.split(/\s+/).length : 0;
+  }, [message]);
+
+  // Restore an unsent draft once, on first mount.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (saved && saved.trim()) {
+        setMessage(saved);
+        setDraftRestored(true);
+      }
+    } catch {
+      // localStorage unavailable (private mode etc.) — fail silently.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the draft in sync while the user types, and clear it once the
+  // textarea is emptied so an old draft can't reappear later.
+  useEffect(() => {
+    try {
+      if (message.trim()) {
+        localStorage.setItem(DRAFT_STORAGE_KEY, message);
+      } else {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
+    } catch {
+      // ignore
+    }
   }, [message]);
 
   // Word-limited textarea input: once the confession reaches MAX_WORDS words,
@@ -461,6 +644,29 @@ export default function ConfessionPage() {
     setImageError("");
   }, []);
 
+  // Drag-and-drop reuses the exact same validation path as the file picker
+  // (handleImageSelect) so dropped files get identical type/size/limit checks.
+  const handleImageDrop = useCallback(
+    (e) => {
+      e.preventDefault();
+      setIsDraggingImage(false);
+      if (e.dataTransfer?.files?.length) {
+        handleImageSelect({
+          target: { files: e.dataTransfer.files, value: "" },
+        });
+      }
+    },
+    [handleImageSelect],
+  );
+  const handleImageDragOver = useCallback((e) => {
+    e.preventDefault();
+    setIsDraggingImage(true);
+  }, []);
+  const handleImageDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setIsDraggingImage(false);
+  }, []);
+
   useEffect(() => {
     if (showIdentity) {
       // Focus the field the moment the option is revealed.
@@ -530,6 +736,14 @@ export default function ConfessionPage() {
     });
     setImageError("");
     if (imageInputRef.current) imageInputRef.current.value = "";
+    setOpenExtra(null);
+    setDraftRestored(false);
+    setSubmitAttempted(false);
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
   }, []);
 
   const handleSubmit = useCallback(
@@ -538,6 +752,7 @@ export default function ConfessionPage() {
       setCooldownError(false);
       setProfanityError(false);
       setFormError("");
+      setSubmitAttempted(true);
 
       if (!message.trim()) {
         setFormError("Please enter your confession.");
@@ -804,6 +1019,50 @@ export default function ConfessionPage() {
               className="p-4 sm:p-8 md:p-12 space-y-6 sm:space-y-8"
               noValidate
             >
+              {(message ||
+                attachedImages.length > 0 ||
+                customColorEnabled ||
+                showIdentity) && (
+                <div className="flex justify-end -mb-2">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className={`text-xs font-semibold underline underline-offset-2 transition ${
+                      isDark
+                        ? "text-gray-500 hover:text-gray-300"
+                        : "text-slate-400 hover:text-slate-600"
+                    }`}
+                  >
+                    Start over
+                  </button>
+                </div>
+              )}
+
+              {draftRestored && (
+                <div
+                  className={`flex items-center justify-between gap-3 text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-lg border animate-[fadeIn_0.3s_ease] ${
+                    isDark
+                      ? "bg-blue-500/10 border-blue-400/20 text-blue-200"
+                      : "bg-blue-50 border-blue-200 text-blue-700"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <FaClock className="shrink-0" />
+                    We restored your unsent draft.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessage("");
+                      setDraftRestored(false);
+                    }}
+                    className="font-semibold underline underline-offset-2 hover:opacity-75 transition"
+                  >
+                    Discard
+                  </button>
+                </div>
+              )}
+
               {/* Textarea */}
               <div className="relative group">
                 <label htmlFor="confession" className="sr-only">
@@ -815,10 +1074,19 @@ export default function ConfessionPage() {
                     isDark
                       ? "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border-white/10 placeholder-gray-400 focus:ring-white/20 focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] group-hover:border-white/20"
                       : "bg-white text-slate-900 border-black/10 placeholder-slate-400 focus:ring-slate-400/40 group-hover:border-black/20"
+                  } ${
+                    submitAttempted && !message.trim()
+                      ? isDark
+                        ? "border-red-400/50 focus:ring-red-400/40"
+                        : "border-red-400/60 focus:ring-red-400/30"
+                      : ""
                   }`}
-                  placeholder="Type your anonymous confession..."
+                  placeholder="Type your anonymous confession... it's just between you and us."
                   value={message}
-                  onChange={handleMessageChange}
+                  onChange={(e) => {
+                    handleMessageChange(e);
+                    if (draftRestored) setDraftRestored(false);
+                  }}
                   required
                   maxLength={SOFT_CHAR_CAP}
                 />
@@ -829,355 +1097,393 @@ export default function ConfessionPage() {
                 />
               </div>
 
-              {/* Custom Color */}
-              <div
-                className={`flex items-start gap-3 mb-2 p-3 rounded-xl border shadow transition-all duration-300 ${
-                  isDark
-                    ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 hover:border-white/30 hover:shadow-lg"
-                    : "bg-slate-50 border-black/10 hover:border-black/20 hover:shadow-lg"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  id="customColor"
-                  checked={customColorEnabled}
-                  onChange={(e) => setCustomColorEnabled(e.target.checked)}
-                  className={`scale-110 sm:scale-125 mt-1 transition-all duration-200 ${
-                    isDark ? "accent-white" : "accent-slate-700"
-                  }`}
-                />
-                <label
-                  htmlFor="customColor"
-                  className={`text-xs sm:text-sm cursor-pointer ${
-                    isDark ? "text-gray-300" : "text-slate-600"
+              {/* Extras: collapsed by default so the form opens light and simple */}
+              <div className="space-y-3">
+                <p
+                  className={`text-xs font-semibold uppercase tracking-wider ${
+                    isDark ? "text-gray-500" : "text-slate-400"
                   }`}
                 >
-                  <span
-                    className={`block font-semibold mb-1 tracking-wide ${
-                      isDark ? "text-white" : "text-slate-900"
-                    }`}
-                  >
-                    Custom Color
-                  </span>
-                  <span
-                    className={
-                      isDark ? "block text-gray-400" : "block text-slate-500"
-                    }
-                  >
-                    Choose a custom color for your confession (optional)
-                  </span>
-                </label>
-              </div>
+                  EXTRAS
+                </p>
 
-              {customColorEnabled && (
-                <div className="w-full flex flex-col items-center justify-center my-4 animate-[fadeIn_0.3s_ease]">
-                  <div
-                    className={`rounded-2xl border p-5 shadow-xl flex flex-col items-center ${
-                      isDark
-                        ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800"
-                        : "border-black/10 bg-white"
-                    }`}
-                    style={{ width: "100%", maxWidth: 260 }}
-                  >
-                    <HexColorPicker
-                      color={customColor}
-                      onChange={setCustomColor}
+                {/* Custom Color */}
+                <Accordion
+                  id="extra-color"
+                  icon={
+                    <span
+                      className="w-3.5 h-3.5 rounded-full block"
                       style={{
-                        width: "100%",
-                        maxWidth: 220,
-                        aspectRatio: "1/1",
-                        borderRadius: "1rem",
-                        boxShadow: "0 2px 16px 0 #0006",
+                        background: customColorEnabled
+                          ? customColor
+                          : "currentColor",
                       }}
                     />
-                    <div className="mt-4 flex items-center gap-2">
-                      <span
-                        className="inline-block w-7 h-7 rounded-lg border border-white/20 shadow"
-                        style={{ background: customColor }}
-                      />
-                      <input
-                        type="text"
-                        value={customColor}
-                        onChange={(e) => setCustomColor(e.target.value)}
-                        className={`border rounded px-2 py-1 text-xs font-mono w-24 focus:outline-none focus:ring-2 focus:ring-blue-400 transition ${
-                          isDark
-                            ? "bg-gray-900 border-white/10 text-white"
-                            : "bg-white border-black/10 text-slate-900"
-                        }`}
-                        maxLength={7}
-                      />
-                    </div>
-                    <div
-                      className={`mt-1 text-xs text-center w-full ${
-                        isDark ? "text-gray-400" : "text-slate-500"
-                      }`}
-                    >
-                      Selected color
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Image attachment */}
-              <div
-                className={`p-3 sm:p-4 rounded-xl border shadow transition-all duration-300 ${
-                  isDark
-                    ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 hover:border-white/30 hover:shadow-lg"
-                    : "bg-slate-50 border-black/10 hover:border-black/20 hover:shadow-lg"
-                }`}
-              >
-                <span
-                  className={`flex items-center gap-2 font-semibold mb-2 text-sm sm:text-base ${
-                    isDark ? "text-white" : "text-slate-900"
-                  }`}
+                  }
+                  title="Custom color"
+                  subtitle="Give your confession card a color of your choice"
+                  active={customColorEnabled}
+                  open={openExtra === "color"}
+                  onToggle={() => toggleExtra("color")}
+                  dark={isDark}
                 >
-                  <FaImage
-                    className={isDark ? "text-gray-300" : "text-slate-600"}
-                  />
-                  Attach Images{" "}
-                  <span className="font-normal text-gray-500">
-                    (optional, up to {MAX_IMAGES})
-                  </span>
-                </span>
-
-                <input
-                  ref={imageInputRef}
-                  id="confessionImage"
-                  type="file"
-                  accept={ALLOWED_IMAGE_TYPES.join(",")}
-                  multiple
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
-
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                  {attachedImages.map((img) => (
-                    <div key={img.id} className="relative aspect-square">
-                      <img
-                        src={img.previewUrl}
-                        alt="Selected attachment preview"
-                        className="w-full h-full rounded-lg border border-white/10 object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(img.id)}
-                        className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-lg transition"
-                        aria-label="Remove image"
-                        title="Remove image"
-                      >
-                        <FaTimesCircle className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {attachedImages.length < MAX_IMAGES && (
-                    <label
-                      htmlFor="confessionImage"
-                      className={`flex flex-col items-center justify-center gap-1 aspect-square cursor-pointer border border-dashed rounded-lg text-[11px] sm:text-xs text-center px-1 transition ${
-                        isDark
-                          ? "border-white/20 text-gray-400 hover:border-white/40 hover:text-gray-200"
-                          : "border-black/20 text-slate-500 hover:border-black/40 hover:text-slate-700"
-                      }`}
-                    >
-                      <FaImage className="text-base" />
-                      Add image
-                    </label>
-                  )}
-                </div>
-
-                {imageError && (
-                  <p className="mt-2 text-xs text-red-400 font-semibold">
-                    {imageError}
-                  </p>
-                )}
-
-                <p
-                  className={`mt-2 text-[11px] leading-relaxed ${
-                    isDark ? "text-red-400" : "text-slate-500"
-                  }`}
-                >
-                  Up to {MAX_IMAGES} images, {MAX_IMAGE_MB}MB each. Images are
-                  reviewed by our team before being shared. Do not upload
-                  nudity, gore, or anything illegal — violators will be
-                  permanently banned.
-                </p>
-              </div>
-
-              {/* Username / Identity reveal */}
-              <div
-                className={`flex items-start gap-3 mb-2 p-4 rounded-xl border-2 shadow-lg transition-all duration-300 ${
-                  isDark
-                    ? "bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-800/80 border-red-400/25 hover:border-red-400/50"
-                    : "bg-red-50 border-red-300/60 hover:border-red-400"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  id="showIdentity"
-                  checked={showIdentity}
-                  onChange={(e) => setShowIdentity(e.target.checked)}
-                  className="accent-red-500 scale-125 mt-1 transition-all duration-200"
-                />
-
-                <label
-                  htmlFor="showIdentity"
-                  className={`text-sm cursor-pointer flex-1 ${
-                    isDark ? "text-gray-300" : "text-slate-600"
-                  }`}
-                >
-                  <span
-                    className={`flex items-center gap-2 font-bold text-base mb-2 ${
-                      isDark ? "text-white" : "text-slate-900"
-                    }`}
-                  >
-                    {showIdentity ? (
-                      <FaUserCircle className="text-red-400" />
-                    ) : (
-                      <FaEyeSlash className="text-red-400" />
-                    )}
-                    Show My Username{" "}
-                    <span className="text-red-500">(Optional)</span>
-                  </span>
-
-                  <div
-                    className={`rounded-lg border p-3 ${
-                      isDark
-                        ? "border-red-400/20 bg-red-500/10"
-                        : "border-red-300/50 bg-red-100/60"
-                    }`}
-                  >
-                    <p
-                      className={`font-semibold ${isDark ? "text-white" : "text-slate-900"}`}
-                    >
-                      Only enable this if you want your username to appear with
-                      your confession.
-                    </p>
-
-                    <p
-                      className={`mt-2 leading-relaxed ${
-                        isDark ? "text-gray-300" : "text-slate-600"
-                      }`}
-                    >
-                      Leaving this <strong>OFF</strong> keeps your confession
-                      completely anonymous. Turn it <strong>ON</strong> only if
-                      you want everyone to know the confession was posted by
-                      your account.
-                    </p>
-                  </div>
-                </label>
-              </div>
-              {showIdentity && (
-                <div
-                  className={`flex flex-col gap-3 mt-2 mb-2 p-4 rounded-xl border shadow animate-[fadeIn_0.25s_ease] ${
-                    isDark
-                      ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10"
-                      : "bg-slate-50 border-black/10"
-                  }`}
-                >
-                  <div>
-                    <label
-                      htmlFor="username"
-                      className={`block text-xs mb-1 ${
-                        isDark ? "text-gray-400" : "text-slate-500"
-                      }`}
-                    >
-                      Your username
-                    </label>
-                    <div className="relative">
-                      <span
-                        className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-mono select-none ${
-                          isDark ? "text-gray-500" : "text-slate-400"
-                        }`}
-                      >
-                        @
-                      </span>
-                      <input
-                        ref={usernameInputRef}
-                        id="username"
-                        type="text"
-                        inputMode="text"
-                        placeholder="yourusername"
-                        value={username}
-                        onChange={handleUsernameChange}
-                        onBlur={() => setUsernameTouched(true)}
-                        className={`border rounded-lg pl-7 pr-3 py-2 text-sm font-mono w-full focus:outline-none focus:ring-2 transition ${
-                          usernameError
-                            ? "border-red-400/50 focus:ring-red-400/40"
-                            : isDark
-                              ? "border-white/10 focus:ring-blue-400/60"
-                              : "border-black/10 focus:ring-blue-400/40"
-                        } ${isDark ? "bg-gray-900 text-white" : "bg-white text-slate-900"}`}
-                        maxLength={MAX_USERNAME_LENGTH}
-                        aria-invalid={!!usernameError}
-                        aria-describedby="username-hint"
-                      />
-                    </div>
-                    <div
-                      id="username-hint"
-                      className="mt-1 flex items-center justify-between text-[11px]"
-                    >
-                      <span
-                        className={
-                          usernameError
-                            ? "text-red-400"
-                            : isDark
-                              ? "text-gray-500"
-                              : "text-slate-500"
-                        }
-                      >
-                        {usernameError ||
-                          "Letters, numbers, periods and underscores."}
-                      </span>
-                      <span
-                        className={`font-mono ${isDark ? "text-gray-500" : "text-slate-500"}`}
-                      >
-                        {username.length}/{MAX_USERNAME_LENGTH}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Live preview of how it'll appear in Admin / on the post */}
-                  {username && usernameIsValid && (
-                    <div
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
-                        isDark
-                          ? "bg-black/40 border-white/5 text-gray-400"
-                          : "bg-white border-black/10 text-slate-500"
-                      }`}
-                    >
-                      <span
-                        className={isDark ? "text-gray-500" : "text-slate-400"}
-                      >
-                        Preview:
-                      </span>
-                      <span
-                        className={`font-medium ${
-                          isDark ? "text-gray-200" : "text-slate-700"
-                        }`}
-                      >
-                        Sent by @{username}
-                      </span>
-                    </div>
-                  )}
-
-                  <label className="flex items-start gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer mb-3">
                     <input
                       type="checkbox"
-                      checked={identityConfirmed}
-                      onChange={(e) => setIdentityConfirmed(e.target.checked)}
-                      className={`scale-110 mt-0.5 transition-all duration-200 ${
+                      id="customColor"
+                      checked={customColorEnabled}
+                      onChange={(e) => {
+                        setCustomColorEnabled(e.target.checked);
+                        if (e.target.checked) setOpenExtra("color");
+                      }}
+                      className={`scale-110 transition-all duration-200 ${
                         isDark ? "accent-white" : "accent-slate-700"
                       }`}
                     />
                     <span
-                      className={`text-xs ${isDark ? "text-gray-300" : "text-slate-600"}`}
+                      className={`text-xs sm:text-sm font-medium ${
+                        isDark ? "text-gray-200" : "text-slate-700"
+                      }`}
                     >
-                      I confirm this username is accurate and I want it shown
-                      publicly with my confession.
+                      Use a custom color
                     </span>
                   </label>
+
+                  {customColorEnabled && (
+                    <div className="w-full flex flex-col items-center justify-center animate-[fadeIn_0.3s_ease]">
+                      <div
+                        className={`rounded-2xl border p-5 shadow-xl flex flex-col items-center ${
+                          isDark
+                            ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800"
+                            : "border-black/10 bg-white"
+                        }`}
+                        style={{ width: "100%", maxWidth: 260 }}
+                      >
+                        <HexColorPicker
+                          color={customColor}
+                          onChange={setCustomColor}
+                          style={{
+                            width: "100%",
+                            maxWidth: 220,
+                            aspectRatio: "1/1",
+                            borderRadius: "1rem",
+                            boxShadow: "0 2px 16px 0 #0006",
+                          }}
+                        />
+                        <div className="mt-4 flex items-center gap-2">
+                          <span
+                            className="inline-block w-7 h-7 rounded-lg border border-white/20 shadow"
+                            style={{ background: customColor }}
+                          />
+                          <input
+                            type="text"
+                            value={customColor}
+                            onChange={(e) => setCustomColor(e.target.value)}
+                            className={`border rounded px-2 py-1 text-xs font-mono w-24 focus:outline-none focus:ring-2 focus:ring-blue-400 transition ${
+                              isDark
+                                ? "bg-gray-900 border-white/10 text-white"
+                                : "bg-white border-black/10 text-slate-900"
+                            }`}
+                            maxLength={7}
+                          />
+                        </div>
+                        <div
+                          className={`mt-1 text-xs text-center w-full ${
+                            isDark ? "text-gray-400" : "text-slate-500"
+                          }`}
+                        >
+                          Selected color
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Accordion>
+
+                {/* Attach Images */}
+                <Accordion
+                  id="extra-images"
+                  icon={<FaImage className="w-3.5 h-3.5" />}
+                  title="Attach photos"
+                  subtitle={
+                    attachedImages.length > 0
+                      ? `${attachedImages.length}/${MAX_IMAGES} added`
+                      : `Add up to ${MAX_IMAGES} images to your confession`
+                  }
+                  active={attachedImages.length > 0}
+                  open={openExtra === "images"}
+                  onToggle={() => toggleExtra("images")}
+                  dark={isDark}
+                >
+                  <input
+                    ref={imageInputRef}
+                    id="confessionImage"
+                    type="file"
+                    accept={ALLOWED_IMAGE_TYPES.join(",")}
+                    multiple
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+
+                  <div
+                    onDrop={handleImageDrop}
+                    onDragOver={handleImageDragOver}
+                    onDragLeave={handleImageDragLeave}
+                    className={`rounded-lg border border-dashed p-2 transition-colors duration-200 ${
+                      isDraggingImage
+                        ? isDark
+                          ? "border-white/50 bg-white/5"
+                          : "border-black/40 bg-black/5"
+                        : "border-transparent"
+                    }`}
+                  >
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                      {attachedImages.map((img) => (
+                        <div key={img.id} className="relative aspect-square">
+                          <img
+                            src={img.previewUrl}
+                            alt="Selected attachment preview"
+                            className="w-full h-full rounded-lg border border-white/10 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(img.id)}
+                            className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-lg transition"
+                            aria-label="Remove image"
+                            title="Remove image"
+                          >
+                            <FaTimesCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {attachedImages.length < MAX_IMAGES && (
+                        <label
+                          htmlFor="confessionImage"
+                          className={`flex flex-col items-center justify-center gap-1 aspect-square cursor-pointer border border-dashed rounded-lg text-[11px] sm:text-xs text-center px-1 transition ${
+                            isDark
+                              ? "border-white/20 text-gray-400 hover:border-white/40 hover:text-gray-200"
+                              : "border-black/20 text-slate-500 hover:border-black/40 hover:text-slate-700"
+                          }`}
+                        >
+                          <FaImage className="text-base" />
+                          {isDraggingImage ? "Drop here" : "Add or drop image"}
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {imageError && (
+                    <p className="mt-2 text-xs text-red-400 font-semibold">
+                      {imageError}
+                    </p>
+                  )}
+
+                  <p
+                    className={`mt-2 text-[11px] leading-relaxed ${
+                      isDark ? "text-red-400" : "text-slate-500"
+                    }`}
+                  >
+                    Up to {MAX_IMAGES} images, {MAX_IMAGE_MB}MB each. Images are
+                    reviewed by our team before being shared. Do not upload
+                    nudity, gore, or anything illegal — violators will be
+                    permanently banned.
+                  </p>
+                </Accordion>
+              </div>
+
+              {/* Username / Identity reveal */}
+              <div
+                className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
+                  showIdentity
+                    ? isDark
+                      ? "border-red-400/40 bg-gradient-to-br from-red-950/30 via-gray-900/90 to-black/90"
+                      : "border-red-300 bg-gradient-to-br from-red-50 via-white to-red-50/60"
+                    : isDark
+                      ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
+                      : "border-black/10 bg-slate-50 hover:border-black/20"
+                }`}
+              >
+                <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
+                  <div
+                    className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
+                      showIdentity
+                        ? "bg-red-500/15 text-red-400"
+                        : isDark
+                          ? "bg-white/5 text-gray-400"
+                          : "bg-black/5 text-slate-500"
+                    }`}
+                  >
+                    {showIdentity ? (
+                      <FaUserCircle className="text-xl" />
+                    ) : (
+                      <FaEyeSlash className="text-xl" />
+                    )}
+                  </div>
+
+                  <label
+                    htmlFor="showIdentity"
+                    className="flex-1 min-w-0 cursor-pointer"
+                  >
+                    <span
+                      className={`flex items-center gap-2 font-bold text-sm sm:text-base ${
+                        isDark ? "text-white" : "text-slate-900"
+                      }`}
+                    >
+                      {showIdentity
+                        ? "Posting With Instagram Username"
+                        : "Posting Anonymously"}
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                          showIdentity
+                            ? "bg-red-500/15 text-red-400"
+                            : isDark
+                              ? "bg-white/10 text-gray-400"
+                              : "bg-black/5 text-slate-500"
+                        }`}
+                      >
+                        Optional
+                      </span>
+                    </span>
+                    <span
+                      className={`block text-xs sm:text-sm mt-0.5 ${
+                        isDark ? "text-gray-400" : "text-slate-500"
+                      }`}
+                    >
+                      {showIdentity
+                        ? "Everyone will see this confession was sent by you."
+                        : "Nobody will know this confession was from you."}
+                    </span>
+                  </label>
+
+                  <ToggleSwitch
+                    id="showIdentity"
+                    checked={showIdentity}
+                    onChange={setShowIdentity}
+                    dark={isDark}
+                  />
                 </div>
-              )}
+
+                {showIdentity && (
+                  <div
+                    className={`px-4 sm:px-5 pb-5 pt-1 space-y-4 animate-[fadeIn_0.3s_ease] border-t ${
+                      isDark ? "border-red-400/10" : "border-red-200/60"
+                    }`}
+                  >
+                    <div
+                      className={`flex items-start gap-2 text-xs rounded-lg p-3 ${
+                        isDark
+                          ? "bg-red-500/10 text-red-200"
+                          : "bg-red-100/70 text-red-700"
+                      }`}
+                    >
+                      <FaExclamationTriangle className="shrink-0 mt-0.5" />
+                      <span>
+                        Only turn this on if you're okay with your username
+                        being public. It can't be undone once your confession is
+                        sent.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="username"
+                        className={`block text-xs font-semibold mb-1.5 ${
+                          isDark ? "text-gray-300" : "text-slate-600"
+                        }`}
+                      >
+                        Your username
+                      </label>
+                      <div className="relative">
+                        <span
+                          className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-mono select-none ${
+                            isDark ? "text-gray-500" : "text-slate-400"
+                          }`}
+                        >
+                          @
+                        </span>
+                        <input
+                          ref={usernameInputRef}
+                          id="username"
+                          type="text"
+                          inputMode="text"
+                          placeholder="yourusername"
+                          value={username}
+                          onChange={handleUsernameChange}
+                          onBlur={() => setUsernameTouched(true)}
+                          className={`border-2 rounded-xl pl-8 pr-10 py-3 text-sm font-mono w-full focus:outline-none focus:ring-4 transition-all duration-200 ${
+                            usernameError
+                              ? "border-red-400 focus:ring-red-400/20"
+                              : username && usernameIsValid
+                                ? "border-emerald-400/60 focus:ring-emerald-400/20"
+                                : isDark
+                                  ? "border-white/10 focus:ring-red-400/20 focus:border-red-400/50"
+                                  : "border-black/10 focus:ring-red-400/10 focus:border-red-300"
+                          } ${
+                            isDark
+                              ? "bg-black/40 text-white"
+                              : "bg-white text-slate-900"
+                          }`}
+                          maxLength={MAX_USERNAME_LENGTH}
+                          aria-invalid={!!usernameError}
+                          aria-describedby="username-hint"
+                        />
+                        {username && usernameIsValid && (
+                          <FaCheckCircle className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400" />
+                        )}
+                      </div>
+                      <div
+                        id="username-hint"
+                        className="mt-1.5 flex items-center justify-between text-[11px]"
+                      >
+                        <span
+                          className={
+                            usernameError
+                              ? "text-red-400 font-medium"
+                              : isDark
+                                ? "text-gray-500"
+                                : "text-slate-500"
+                          }
+                        >
+                          {usernameError ||
+                            "Letters, numbers, periods and underscores."}
+                        </span>
+                        <span
+                          className={`font-mono ${isDark ? "text-gray-500" : "text-slate-500"}`}
+                        >
+                          {username.length}/{MAX_USERNAME_LENGTH}
+                        </span>
+                      </div>
+                    </div>
+
+                    <label
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors duration-200 ${
+                        identityConfirmed
+                          ? isDark
+                            ? "border-emerald-400/40 bg-emerald-500/10"
+                            : "border-emerald-300 bg-emerald-50"
+                          : isDark
+                            ? "border-white/10 bg-black/20"
+                            : "border-black/10 bg-white"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={identityConfirmed}
+                        onChange={(e) => setIdentityConfirmed(e.target.checked)}
+                        className={`scale-110 mt-0.5 shrink-0 transition-all duration-200 ${
+                          isDark ? "accent-emerald-400" : "accent-emerald-600"
+                        }`}
+                      />
+                      <span
+                        className={`text-xs sm:text-sm ${isDark ? "text-gray-300" : "text-slate-600"}`}
+                      >
+                        I confirm this username is accurate and I want it shown
+                        publicly with my confession.
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
 
               {/* Agreement checkbox */}
               <div
@@ -1229,10 +1535,44 @@ export default function ConfessionPage() {
                 </label>
               </div>
 
+              {/* Helpful checklist — only appears once someone has tried to
+                  send and something is still missing, so it never nags a
+                  first-time visitor who hasn't reached the button yet. */}
+              {submitAttempted && !canSubmit && !loading && (
+                <div
+                  className={`rounded-xl border p-3 sm:p-4 text-xs sm:text-sm animate-[fadeIn_0.25s_ease] ${
+                    isDark
+                      ? "bg-amber-500/10 border-amber-400/20 text-amber-200"
+                      : "bg-amber-50 border-amber-200 text-amber-800"
+                  }`}
+                >
+                  <p className="font-semibold mb-1.5">A few things left:</p>
+                  <ul className="space-y-1">
+                    <ChecklistItem done={!!message.trim()}>
+                      Write your confession
+                    </ChecklistItem>
+                    <ChecklistItem done={agreed}>
+                      Accept the Terms and Conditions
+                    </ChecklistItem>
+                    {showIdentity && (
+                      <>
+                        <ChecklistItem done={usernameIsValid && !!username}>
+                          Enter a valid username
+                        </ChecklistItem>
+                        <ChecklistItem done={identityConfirmed}>
+                          Confirm your username is accurate
+                        </ChecklistItem>
+                      </>
+                    )}
+                  </ul>
+                </div>
+              )}
+
               {/* Submit */}
               <button
                 type="submit"
-                disabled={!canSubmit}
+                disabled={loading}
+                aria-disabled={!canSubmit}
                 className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border hover:scale-105 hover:shadow-2xl active:scale-95 ${
                   isDark
                     ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:border-white/30 hover:from-gray-800 hover:via-gray-900 hover:to-black"

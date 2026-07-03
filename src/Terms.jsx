@@ -93,13 +93,52 @@ export default function TermsPage() {
                 Disclosure (Optional)
               </h2>
               <p>
-                3a.1 If you choose to reveal your Instagram username, you confirm
-                its accuracy and accept full responsibility for any consequences.
+                3a.1 If you choose to reveal your Instagram username, you
+                confirm its accuracy and accept full responsibility for any
+                consequences.
               </p>
               <p>
                 3a.2 Once your confession is posted, your identity cannot be
                 removed or hidden. The platform is not responsible for any
                 outcomes resulting from identity disclosure.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-base sm:text-lg md:text-xl font-bold mb-2 text-white flex items-center gap-2">
+                <FaUserShield className="text-indigo-400" /> 3b. Image / Media
+                Uploads
+              </h2>
+
+              <p>
+                3b.1 Users may be allowed to upload images as part of their
+                confession. By uploading any image, you confirm that you own the
+                rights or have permission to use it.
+              </p>
+
+              <p>
+                3b.2 Uploaded images may be stored securely and can be used in
+                the future for platform features, moderation, analytics, or
+                improvements.
+              </p>
+
+              <p>
+                3b.3 You acknowledge that once uploaded, images may not be fully
+                removable if they have already been processed or stored in
+                backups.
+              </p>
+
+              <p>
+                3b.4 Any image containing abusive, illegal, hateful, explicit,
+                or harmful content is strictly prohibited. Violations may result
+                in immediate removal of the content and a permanent ban from the
+                platform.
+              </p>
+
+              <p>
+                3b.5 We reserve the right to review, moderate, and take action
+                on any uploaded media that violates these Terms or community
+                guidelines.
               </p>
             </section>
 
