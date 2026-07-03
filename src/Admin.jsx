@@ -196,6 +196,29 @@ function drawGlowBlob(ctx, cx, cy, r, rgba) {
   ctx.fill();
 }
 
+// ---------------------------------------------------------------------------
+// Normalizes both the current `images: [{url, deleteUrl}]` array field and
+// the older single `imageUrl`/`imageDeleteUrl` fields (from confessions
+// submitted before multi-image support) into one shape. Module-level (not
+// inside the component) so both the canvas card renderer below and the
+// dashboard UI can share the exact same logic.
+// ---------------------------------------------------------------------------
+function getConfessionImages(confession) {
+  if (!confession) return [];
+  if (Array.isArray(confession.images)) {
+    return confession.images.filter((img) => img && img.url);
+  }
+  if (confession.imageUrl) {
+    return [
+      {
+        url: confession.imageUrl,
+        deleteUrl: confession.imageDeleteUrl || null,
+      },
+    ];
+  }
+  return [];
+}
+
 async function renderConfessionCard(confession) {
   const SIZE = 1080; // Instagram square
   const SCALE = 2; // export at 2160x2160 for retina sharpness
@@ -237,13 +260,18 @@ async function renderConfessionCard(confession) {
 
   const hasUsername =
     confession?.instagramUsername && confession?.identityConfirmed;
+  const imageCount = getConfessionImages(confession).length;
+  const hasImages = imageCount > 0;
   const textPaddingX = 72;
   const maxTextWidth = cardW - textPaddingX * 2;
 
   // ---- Chrome measurements ----
   const HEADER_H = 88;
   const TEXT_PAD_Y = 16;
-  const FOOTER_H = hasUsername ? 88 : 52;
+  // Base footer fits just the date (52px). Each extra line — "Sent by"
+  // and/or "Image(s) attached" — adds 36px so nothing overlaps.
+  const FOOTER_EXTRA_LINES = (hasUsername ? 1 : 0) + (hasImages ? 1 : 0);
+  const FOOTER_H = 52 + FOOTER_EXTRA_LINES * 36;
 
   // Minimum card height for a nice proportional / square-ish look
   const MIN_CARD_H = 560;
@@ -339,6 +367,7 @@ async function renderConfessionCard(confession) {
 
   // ---- Footer ----
   const footerBaseY = cardY + cardH - FOOTER_H;
+  let footerLineY = footerBaseY + 32;
 
   if (hasUsername) {
     ctx.font = `600 26px ${CARD_FONT_STACK}`;
@@ -346,8 +375,20 @@ async function renderConfessionCard(confession) {
     ctx.fillText(
       `Sent by: @${confession.instagramUsername}`,
       SIZE / 2,
-      footerBaseY + 32,
+      footerLineY,
     );
+    footerLineY += 36;
+  }
+
+  if (hasImages) {
+    ctx.font = `600 24px ${CARD_FONT_STACK}`;
+    ctx.fillStyle = mutedColor;
+    ctx.fillText(
+      imageCount > 1 ? `📎 ${imageCount} Images Attached` : "📎 Image Attached",
+      SIZE / 2,
+      footerLineY,
+    );
+    footerLineY += 36;
   }
 
   // Post date
@@ -597,27 +638,9 @@ export default function AdminPage() {
   // ---------------------------------------------------------------------
   // Attached images (the ones the user uploaded with their confession, not
   // the generated share card above). Confessions can carry 0-3 images.
-  //
-  // Normalizes both the current `images: [{url, deleteUrl}]` array field
-  // and the older single `imageUrl`/`imageDeleteUrl` fields (from
-  // confessions submitted before multi-image support) into one shape, so
-  // every render path only ever has to deal with an array.
+  // getConfessionImages is defined at module scope above (shared with the
+  // canvas card renderer).
   // ---------------------------------------------------------------------
-  const getConfessionImages = (confession) => {
-    if (!confession) return [];
-    if (Array.isArray(confession.images)) {
-      return confession.images.filter((img) => img && img.url);
-    }
-    if (confession.imageUrl) {
-      return [
-        {
-          url: confession.imageUrl,
-          deleteUrl: confession.imageDeleteUrl || null,
-        },
-      ];
-    }
-    return [];
-  };
 
   // Downloading pulls the actual bytes so it saves locally instead of just
   // opening a tab; if the host doesn't allow cross-origin fetches we fall
