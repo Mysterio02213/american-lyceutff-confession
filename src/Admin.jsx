@@ -467,6 +467,7 @@ export default function AdminPage() {
 
   const [confessions, setConfessions] = useState([]);
   const [selectedConfession, setSelectedConfession] = useState(null);
+  const [activeConfessionUsers, setActiveConfessionUsers] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusFilters, setStatusFilters] = useState([]); // [] means "show all"
@@ -518,6 +519,33 @@ export default function AdminPage() {
       }));
       setConfessions(data);
     });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "confessionPresence"),
+      (snapshot) => {
+        const now = Date.now();
+        const activeUsers = snapshot.docs.reduce((count, docSnap) => {
+          const data = docSnap.data();
+          if (data.page !== "confession") return count;
+          const lastSeen = data.lastSeen;
+          const lastSeenTime = lastSeen?.toDate
+            ? lastSeen.toDate().getTime()
+            : new Date(lastSeen || 0).getTime();
+          const isFresh =
+            Number.isFinite(lastSeenTime) && now - lastSeenTime < 15000;
+          return (
+            count +
+            (isFresh && (data.status === "active" || data.status === "typing")
+              ? 1
+              : 0)
+          );
+        }, 0);
+        setActiveConfessionUsers(activeUsers);
+      },
+    );
     return () => unsubscribe();
   }, []);
 
@@ -994,27 +1022,34 @@ export default function AdminPage() {
         `}
         >
           <div className="flex-1 min-h-0 flex flex-col p-5 pt-20 md:pt-5">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-bold text-white">
                   {userFilterIp ? "User's Confessions" : "Confessions"}
                 </h2>
-                {!userFilterIp &&
-                  confessions.filter((c) => c.status === "not-opened").length >
-                    0 && (
-                    <span
-                      className="bg-white text-black text-xs font-bold rounded-full px-2 py-0.5"
-                      title="Not opened yet"
-                    >
-                      {
-                        confessions.filter((c) => c.status === "not-opened")
-                          .length
-                      }{" "}
-                      new
-                    </span>
-                  )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold text-emerald-300 shadow-sm">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {activeConfessionUsers} active
+                  </span>
+                  {!userFilterIp &&
+                    confessions.filter((c) => c.status === "not-opened")
+                      .length > 0 && (
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold text-white/90 shadow-sm"
+                        title="Not opened yet"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                        {
+                          confessions.filter((c) => c.status === "not-opened")
+                            .length
+                        }{" "}
+                        new
+                      </span>
+                    )}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-auto">
                 <div className="relative">
                   <button
                     onClick={() => setShowBannedTab((v) => !v)}
@@ -1441,7 +1476,17 @@ export default function AdminPage() {
         >
           {selectedConfession ? (
             <div className="relative w-full min-h-full flex flex-col items-center justify-center px-4 sm:px-6 py-10">
-              <div className="w-full max-w-2xl flex flex-col gap-4">
+              <div className="relative w-full max-w-2xl flex flex-col gap-4">
+                <button
+                  type="button"
+                  onClick={() => setSelectedConfession(null)}
+                  className="absolute right-0 top-0 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white shadow-lg backdrop-blur transition hover:bg-white/10"
+                  aria-label="Close confession"
+                  title="Close confession"
+                >
+                  <X size={18} />
+                </button>
+
                 {/* Status / meta pills */}
                 <div className="flex flex-wrap items-center gap-2">
                   <span
@@ -2097,29 +2142,45 @@ export default function AdminPage() {
       </div>
 
       {/* Stats Bar */}
-      <div className="shrink-0 z-30 bg-gradient-to-r from-black via-black-900 to-black border-t border-white/10 px-4 py-2">
-        <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-300 text-center">
-          <div className="flex-1 min-w-[120px]">
-            <span className="font-semibold">{confessions.length}</span>{" "}
-            Confessions
+      <div className="shrink-0 z-30 border-t border-white/10 bg-gradient-to-r from-black via-black-900 to-black px-3 py-2 sm:px-4">
+        <div className="grid grid-cols-2 gap-2 text-center text-[11px] text-gray-300 sm:flex sm:flex-wrap sm:justify-center sm:gap-4 sm:text-sm">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-2 sm:min-w-[120px] sm:flex-1">
+            <div className="font-semibold text-white">{confessions.length}</div>
+            <div className="mt-0.5 text-[10px] text-gray-400 sm:text-xs">
+              Confessions
+            </div>
           </div>
-          <div className="flex-1 min-w-[120px]">
-            <span className="font-semibold">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-2 sm:min-w-[120px] sm:flex-1">
+            <div className="font-semibold text-white">
               {confessions.filter((c) => c.status === "not-opened").length}
-            </span>{" "}
-            Not Opened
+            </div>
+            <div className="mt-0.5 text-[10px] text-gray-400 sm:text-xs">
+              Not Opened
+            </div>
           </div>
-          <div className="flex-1 min-w-[120px]">
-            <span className="font-semibold">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-2 sm:min-w-[120px] sm:flex-1">
+            <div className="font-semibold text-white">
               {confessions.filter((c) => c.status === "shared").length}
-            </span>{" "}
-            Shared
+            </div>
+            <div className="mt-0.5 text-[10px] text-gray-400 sm:text-xs">
+              Shared
+            </div>
           </div>
-          <div className="flex-1 min-w-[120px]">
-            <span className="font-semibold">
+          <div className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-2 py-2 sm:min-w-[120px] sm:flex-1">
+            <div className="font-semibold text-emerald-300">
+              {activeConfessionUsers}
+            </div>
+            <div className="mt-0.5 text-[10px] text-emerald-200/80 sm:text-xs">
+              Active Now
+            </div>
+          </div>
+          <div className="rounded-lg border border-red-400/20 bg-red-500/10 px-2 py-2 sm:min-w-[120px] sm:flex-1">
+            <div className="font-semibold text-red-300">
               {confessions.filter((c) => c.reported && c.reports > 0).length}
-            </span>{" "}
-            Reported
+            </div>
+            <div className="mt-0.5 text-[10px] text-red-200/80 sm:text-xs">
+              Reported
+            </div>
           </div>
         </div>
       </div>

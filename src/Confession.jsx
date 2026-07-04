@@ -4,6 +4,9 @@ import React, {
   useMemo,
   useCallback,
   useRef,
+  startTransition,
+  useDeferredValue,
+  memo,
 } from "react";
 import {
   addDoc,
@@ -11,6 +14,8 @@ import {
   Timestamp,
   doc as firestoreDoc,
   onSnapshot,
+  setDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import sendToDiscord from "./sendToDiscord";
@@ -204,7 +209,13 @@ function containsProfanity(text) {
 // ---------------------------------------------------------------------------
 
 /** Unified toast — replaces four near-identical copy/pasted status blocks. */
-function Toast({ tone, icon, children, visible, dark = true }) {
+const Toast = memo(function Toast({
+  tone,
+  icon,
+  children,
+  visible,
+  dark = true,
+}) {
   const toneStyles = dark
     ? {
         success:
@@ -237,9 +248,9 @@ function Toast({ tone, icon, children, visible, dark = true }) {
       </p>
     </div>
   );
-}
+});
 
-function WordCounter({ current, max, dark }) {
+const WordCounter = memo(function WordCounter({ current, max, dark }) {
   const remaining = max - current;
   const low = remaining <= max * 0.1;
   const empty = current === 0;
@@ -272,7 +283,7 @@ function WordCounter({ current, max, dark }) {
       </div>
     </div>
   );
-}
+});
 
 /** Small line item used in the "what's left to do" submit checklist. */
 function ChecklistItem({ done, children }) {
@@ -330,6 +341,7 @@ export default function ConfessionPage() {
   }, [theme]);
 
   const [message, setMessage] = useState("");
+  const deferredMessage = useDeferredValue(message);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
@@ -364,6 +376,8 @@ export default function ConfessionPage() {
   const [draftRestored, setDraftRestored] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const presenceSessionRef = useRef(null);
+  const presenceStatusRef = useRef("active");
 
   // Image attachment state — an array of { id, file, previewUrl }, up to
   // MAX_IMAGES entries. Using an id (not array index) as the React key and
@@ -376,9 +390,74 @@ export default function ConfessionPage() {
   const nextImageId = useRef(0);
 
   const wordCount = useMemo(() => {
-    const trimmed = message.trim();
+    const trimmed = deferredMessage.trim();
     return trimmed ? trimmed.split(/\s+/).length : 0;
-  }, [message]);
+  }, [deferredMessage]);
+
+  const updatePresence = useCallback(async (status = "active") => {
+    if (!presenceSessionRef.current) return;
+    try {
+      await setDoc(
+        firestoreDoc(db, "confessionPresence", presenceSessionRef.current),
+        {
+          status,
+          page: "confession",
+          lastSeen: Timestamp.now(),
+        },
+        { merge: true },
+      );
+    } catch {
+      // Ignore presence write failures to avoid disrupting the confessions flow.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const sessionId =
+      sessionStorage.getItem("confessionPresenceSessionId") ||
+      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    sessionStorage.setItem("confessionPresenceSessionId", sessionId);
+    presenceSessionRef.current = sessionId;
+
+    const heartbeat = window.setInterval(() => {
+      void updatePresence(presenceStatusRef.current);
+    }, 10000);
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        presenceStatusRef.current = "away";
+        void updatePresence("away");
+      } else {
+        presenceStatusRef.current = message.trim() ? "typing" : "active";
+        void updatePresence(presenceStatusRef.current);
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      if (presenceSessionRef.current) {
+        void deleteDoc(
+          firestoreDoc(db, "confessionPresence", presenceSessionRef.current),
+        );
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    void updatePresence("active");
+
+    return () => {
+      window.clearInterval(heartbeat);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      handleBeforeUnload();
+    };
+  }, [message, updatePresence]);
+
+  useEffect(() => {
+    presenceStatusRef.current = message.trim() ? "typing" : "active";
+    void updatePresence(presenceStatusRef.current);
+  }, [message, updatePresence]);
 
   // Restore an unsent draft once, on first mount.
   useEffect(() => {
@@ -397,15 +476,19 @@ export default function ConfessionPage() {
   // Keep the draft in sync while the user types, and clear it once the
   // textarea is emptied so an old draft can't reappear later.
   useEffect(() => {
-    try {
-      if (message.trim()) {
-        localStorage.setItem(DRAFT_STORAGE_KEY, message);
-      } else {
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
+    const saveTimer = window.setTimeout(() => {
+      try {
+        if (message.trim()) {
+          localStorage.setItem(DRAFT_STORAGE_KEY, message);
+        } else {
+          localStorage.removeItem(DRAFT_STORAGE_KEY);
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
+    }, 250);
+
+    return () => window.clearTimeout(saveTimer);
   }, [message]);
 
   // Word-limited textarea input: once the confession reaches MAX_WORDS words,
@@ -414,11 +497,12 @@ export default function ConfessionPage() {
     const value = e.target.value;
     const trimmed = value.trim();
     const words = trimmed ? trimmed.split(/\s+/) : [];
-    if (words.length > MAX_WORDS) {
-      setMessage(words.slice(0, MAX_WORDS).join(" "));
-    } else {
-      setMessage(value);
-    }
+
+    startTransition(() => {
+      setMessage(
+        words.length > MAX_WORDS ? words.slice(0, MAX_WORDS).join(" ") : value,
+      );
+    });
   }, []);
 
   // Sanitize username as the user types: strip spaces/@ and disallowed chars,
@@ -932,6 +1016,16 @@ export default function ConfessionPage() {
                 </label>
                 <textarea
                   id="confession"
+                  onFocus={() => {
+                    presenceStatusRef.current = "typing";
+                    void updatePresence("typing");
+                  }}
+                  onBlur={() => {
+                    presenceStatusRef.current = message.trim()
+                      ? "typing"
+                      : "active";
+                    void updatePresence(presenceStatusRef.current);
+                  }}
                   className={`w-full min-h-[140px] sm:min-h-[200px] p-4 sm:p-6 rounded-xl sm:rounded-2xl border shadow-md focus:outline-none focus:ring-2 transition-all duration-300 resize-none text-base sm:text-lg ${
                     isDark
                       ? "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border-white/10 placeholder-gray-400 focus:ring-white/20 focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] group-hover:border-white/20"
