@@ -36,9 +36,6 @@ import { HexColorPicker } from "react-colorful";
 import { Filter } from "bad-words";
 
 const MAX_WORDS = 1000;
-// Hard ceiling on raw character count — purely a safety net against pasting
-// one giant blob of text with no spaces (which would otherwise count as a
-// single "word"), not the primary limit users interact with.
 const SOFT_CHAR_CAP = 8000;
 const THEME_STORAGE_KEY = "confessionTheme";
 const DRAFT_STORAGE_KEY = "confessionDraft";
@@ -47,37 +44,8 @@ const MAX_USERNAME_LENGTH = 30;
 const USERNAME_PATTERN = /^[a-zA-Z0-9._]{1,30}$/;
 
 // ---------------------------------------------------------------------------
-// Image attachment (optional, up to MAX_IMAGES per confession). Images are
-// hosted on ImgBB — no server of our own is needed. Requires a free API key
-// from https://api.imgbb.com/ set as VITE_IMGBB_API_KEY in your .env file.
-//
-// There is no automated nudity/NSFW filter here by design (per product
-// decision) — every uploaded image is reviewed manually by an admin in the
-// dashboard before being shared, and admins can remove an image or ban the
-// sender at any time.
-//
-// Security notes:
-// - We deliberately never pass an `album` parameter to ImgBB. Without one,
-//   uploads get random unguessable URLs and are NOT listed on any public
-//   gallery/album page — there is no "browse everything this key has
-//   uploaded" page an outsider could stumble onto or share a link to.
-// - Each image's one-time `delete_url` is stored in Firestore and only ever
-//   surfaced in the Admin dashboard — it is never sent to or rendered on
-//   the public confession page, so a regular visitor has no way to delete
-//   or discover it.
-// - The API key itself is compiled into the client bundle (unavoidable for
-//   a backend-less app) and is technically visible to anyone who inspects
-//   network requests or the built JS. That's a real limit of this
-//   architecture: it lets someone with the key upload to your ImgBB
-//   account directly, bypassing this form's size/type limits, but it does
-//   NOT let them list, browse, or delete your existing images (ImgBB's
-//   public upload API has no "list my uploads" endpoint). If you need the
-//   key fully hidden and abuse-proof, the key would need to move behind a
-//   small serverless proxy (e.g. a Firebase Cloud Function) that we don't
-//   currently have — ask if you'd like that added.
-// ---------------------------------------------------------------------------
 const IMGBB_API_KEY = import.meta.env.VITE_IMGBB_API_KEY;
-const MAX_IMAGE_MB = 50;
+const MAX_IMAGE_MB = 32;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 const MAX_IMAGES = 3;
 const ALLOWED_IMAGE_TYPES = [
@@ -86,16 +54,6 @@ const ALLOWED_IMAGE_TYPES = [
   "image/webp",
   "image/gif",
 ];
-// NOTE: ImgBB's own API caps uploads at 32MB per image regardless of this
-// constant — a 100MB file will be accepted by this form but rejected by
-// ImgBB with an upload error at submit time. Lower this if you'd rather
-// reject oversized files immediately instead of after a slow upload attempt.
-
-/**
- * Uploads a single image file to ImgBB and returns its public URL plus the
- * one-time delete URL ImgBB issues (kept so an admin can wipe it from the
- * host entirely, not just hide it in our own dashboard).
- */
 async function uploadImageToImgbb(file) {
   if (!IMGBB_API_KEY) {
     throw new Error(
