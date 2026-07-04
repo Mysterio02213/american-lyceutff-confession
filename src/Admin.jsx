@@ -456,9 +456,9 @@ function DeviceInfoLine({ info }) {
 }
 
 export default function AdminPage() {
-  const allowedEmail = "hasnainamironly@gmail.com";
-  const allowedIp = "153.117.1.52";
-  const ADMIN_PASSWORD = "Mysterio@Mysterio";
+  const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
+  const allowedEmail = import.meta.env.VITE_ADMIN_EMAIL;
+  const allowedIp = import.meta.env.VITE_ADMIN_IP;
 
   const [accessAllowed, setAccessAllowed] = useState(null);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);

@@ -4,7 +4,6 @@ import React, {
   useMemo,
   useCallback,
   useRef,
-  startTransition,
   useDeferredValue,
   memo,
 } from "react";
@@ -364,25 +363,17 @@ export default function ConfessionPage() {
   const [formError, setFormError] = useState("");
   const usernameInputRef = useRef(null);
 
-  // Which "extra" accordion panel is open (only one at a time keeps the
-  // form calm). null = all collapsed.
   const [openExtra, setOpenExtra] = useState(null);
   const toggleExtra = useCallback((key) => {
     setOpenExtra((prev) => (prev === key ? null : key));
   }, []);
 
-  // Draft autosave: restores the confession text if the tab was closed or
-  // refreshed mid-write, so a half-typed confession is never silently lost.
   const [draftRestored, setDraftRestored] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const presenceSessionRef = useRef(null);
   const presenceStatusRef = useRef("active");
 
-  // Image attachment state — an array of { id, file, previewUrl }, up to
-  // MAX_IMAGES entries. Using an id (not array index) as the React key and
-  // for removal means removing image #1 can never accidentally target the
-  // wrong entry after the array shifts.
   const [attachedImages, setAttachedImages] = useState([]);
   const [imageError, setImageError] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
@@ -455,8 +446,16 @@ export default function ConfessionPage() {
   }, [message, updatePresence]);
 
   useEffect(() => {
-    presenceStatusRef.current = message.trim() ? "typing" : "active";
-    void updatePresence(presenceStatusRef.current);
+    const timer = setTimeout(() => {
+      const newStatus = message.trim() ? "typing" : "active";
+
+      if (presenceStatusRef.current !== newStatus) {
+        presenceStatusRef.current = newStatus;
+        void updatePresence(newStatus);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, [message, updatePresence]);
 
   // Restore an unsent draft once, on first mount.
@@ -491,18 +490,14 @@ export default function ConfessionPage() {
     return () => window.clearTimeout(saveTimer);
   }, [message]);
 
-  // Word-limited textarea input: once the confession reaches MAX_WORDS words,
-  // further typing is trimmed back down instead of silently overflowing.
   const handleMessageChange = useCallback((e) => {
     const value = e.target.value;
     const trimmed = value.trim();
     const words = trimmed ? trimmed.split(/\s+/) : [];
 
-    startTransition(() => {
-      setMessage(
-        words.length > MAX_WORDS ? words.slice(0, MAX_WORDS).join(" ") : value,
-      );
-    });
+    setMessage(
+      words.length > MAX_WORDS ? words.slice(0, MAX_WORDS).join(" ") : value,
+    );
   }, []);
 
   // Sanitize username as the user types: strip spaces/@ and disallowed chars,
@@ -1021,10 +1016,8 @@ export default function ConfessionPage() {
                     void updatePresence("typing");
                   }}
                   onBlur={() => {
-                    presenceStatusRef.current = message.trim()
-                      ? "typing"
-                      : "active";
-                    void updatePresence(presenceStatusRef.current);
+                    presenceStatusRef.current = "active";
+                    void updatePresence("active");
                   }}
                   className={`w-full min-h-[140px] sm:min-h-[200px] p-4 sm:p-6 rounded-xl sm:rounded-2xl border shadow-md focus:outline-none focus:ring-2 transition-all duration-300 resize-none text-base sm:text-lg ${
                     isDark
