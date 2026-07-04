@@ -28,6 +28,7 @@ import {
   FaMoon,
   FaImage,
   FaTimesCircle,
+  FaPalette,
 } from "react-icons/fa";
 import axios from "axios";
 import { UAParser } from "ua-parser-js";
@@ -310,103 +311,6 @@ function WordCounter({ current, max, dark }) {
         }`}
       >
         {empty ? `${max} words max` : `${remaining} words left`}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Collapsible "extra" section — used to group the optional Custom Color,
- * Attach Images and Show Username blocks so the form doesn't dump every
- * option on the user at once. Opening one is a deliberate choice, and a
- * small badge shows at a glance whether that extra is currently active.
- */
-function Accordion({
-  id,
-  icon,
-  title,
-  subtitle,
-  active,
-  open,
-  onToggle,
-  dark,
-  children,
-}) {
-  return (
-    <div
-      className={`rounded-xl border shadow transition-all duration-300 overflow-hidden ${
-        dark
-          ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 hover:border-white/25"
-          : "bg-slate-50 border-black/10 hover:border-black/20"
-      } ${open ? (dark ? "border-white/30 shadow-lg" : "border-black/25 shadow-lg") : ""}`}
-    >
-      <button
-        type="button"
-        id={`${id}-trigger`}
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls={`${id}-panel`}
-        className="w-full flex items-center gap-3 p-3 sm:p-4 text-left"
-      >
-        <span
-          className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 transition-colors ${
-            active
-              ? "bg-emerald-500/20 text-emerald-400"
-              : dark
-                ? "bg-white/5 text-gray-300"
-                : "bg-black/5 text-slate-600"
-          }`}
-        >
-          {icon}
-        </span>
-        <span className="flex-1 min-w-0">
-          <span
-            className={`flex items-center gap-2 font-semibold text-sm sm:text-base ${
-              dark ? "text-white" : "text-slate-900"
-            }`}
-          >
-            {title}
-            {active && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
-                <FaCheckCircle className="w-2.5 h-2.5" /> On
-              </span>
-            )}
-          </span>
-          <span
-            className={`block text-xs mt-0.5 truncate ${
-              dark ? "text-gray-400" : "text-slate-500"
-            }`}
-          >
-            {subtitle}
-          </span>
-        </span>
-        <svg
-          className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
-            open ? "rotate-180" : ""
-          } ${dark ? "text-gray-400" : "text-slate-500"}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-      <div
-        id={`${id}-panel`}
-        role="region"
-        aria-labelledby={`${id}-trigger`}
-        className={`grid transition-all duration-300 ease-in-out ${
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
-      >
-        <div className="overflow-hidden">
-          <div className="px-3 sm:px-4 pb-4">{children}</div>
-        </div>
       </div>
     </div>
   );
@@ -1081,7 +985,7 @@ export default function ConfessionPage() {
                         : "border-red-400/60 focus:ring-red-400/30"
                       : ""
                   }`}
-                  placeholder="Type your anonymous confession... it's just between you and us."
+                  placeholder="Type your anonymous confession..."
                   value={message}
                   onChange={(e) => {
                     handleMessageChange(e);
@@ -1108,187 +1012,330 @@ export default function ConfessionPage() {
                 </p>
 
                 {/* Custom Color */}
-                <Accordion
-                  id="extra-color"
-                  icon={
-                    <span
-                      className="w-3.5 h-3.5 rounded-full block"
-                      style={{
-                        background: customColorEnabled
-                          ? customColor
-                          : "currentColor",
-                      }}
-                    />
-                  }
-                  title="Custom color"
-                  subtitle="Give your confession card a color of your choice"
-                  active={customColorEnabled}
-                  open={openExtra === "color"}
-                  onToggle={() => toggleExtra("color")}
-                  dark={isDark}
+                <div
+                  className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
+                    customColorEnabled
+                      ? isDark
+                        ? "border-violet-400/40 bg-gradient-to-br from-violet-950/30 via-gray-900/90 to-black/90"
+                        : "border-violet-300 bg-gradient-to-br from-violet-50 via-white to-violet-50/60"
+                      : isDark
+                        ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
+                        : "border-black/10 bg-slate-50 hover:border-black/20"
+                  }`}
                 >
-                  <label className="flex items-center gap-2 cursor-pointer mb-3">
-                    <input
-                      type="checkbox"
-                      id="customColor"
-                      checked={customColorEnabled}
-                      onChange={(e) => {
-                        setCustomColorEnabled(e.target.checked);
-                        if (e.target.checked) setOpenExtra("color");
-                      }}
-                      className={`scale-110 transition-all duration-200 ${
-                        isDark ? "accent-white" : "accent-slate-700"
-                      }`}
-                    />
-                    <span
-                      className={`text-xs sm:text-sm font-medium ${
-                        isDark ? "text-gray-200" : "text-slate-700"
+                  <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
+                    <div
+                      className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
+                        customColorEnabled
+                          ? "bg-violet-500/15 text-violet-400"
+                          : isDark
+                            ? "bg-white/5 text-gray-400"
+                            : "bg-black/5 text-slate-500"
                       }`}
                     >
-                      Use a custom color
-                    </span>
-                  </label>
-
-                  {customColorEnabled && (
-                    <div className="w-full flex flex-col items-center justify-center animate-[fadeIn_0.3s_ease]">
-                      <div
-                        className={`rounded-2xl border p-5 shadow-xl flex flex-col items-center ${
-                          isDark
-                            ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800"
-                            : "border-black/10 bg-white"
-                        }`}
-                        style={{ width: "100%", maxWidth: 260 }}
-                      >
-                        <HexColorPicker
-                          color={customColor}
-                          onChange={setCustomColor}
-                          style={{
-                            width: "100%",
-                            maxWidth: 220,
-                            aspectRatio: "1/1",
-                            borderRadius: "1rem",
-                            boxShadow: "0 2px 16px 0 #0006",
-                          }}
+                      {customColorEnabled ? (
+                        <span
+                          className="w-5 h-5 rounded-full block border border-white/30 shadow-inner"
+                          style={{ background: customColor }}
                         />
-                        <div className="mt-4 flex items-center gap-2">
-                          <span
-                            className="inline-block w-7 h-7 rounded-lg border border-white/20 shadow"
-                            style={{ background: customColor }}
-                          />
-                          <input
-                            type="text"
-                            value={customColor}
-                            onChange={(e) => setCustomColor(e.target.value)}
-                            className={`border rounded px-2 py-1 text-xs font-mono w-24 focus:outline-none focus:ring-2 focus:ring-blue-400 transition ${
-                              isDark
-                                ? "bg-gray-900 border-white/10 text-white"
-                                : "bg-white border-black/10 text-slate-900"
-                            }`}
-                            maxLength={7}
-                          />
-                        </div>
-                        <div
-                          className={`mt-1 text-xs text-center w-full ${
-                            isDark ? "text-gray-400" : "text-slate-500"
+                      ) : (
+                        <FaPalette className="text-xl" />
+                      )}
+                    </div>
+
+                    <label
+                      htmlFor="customColorEnabled"
+                      className="flex-1 min-w-0 cursor-pointer"
+                    >
+                      <span
+                        className={`flex items-center gap-2 font-bold text-sm sm:text-base ${
+                          isDark ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {customColorEnabled
+                          ? "Custom Color Enabled"
+                          : "Default Color"}
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                            customColorEnabled
+                              ? "bg-violet-500/15 text-violet-400"
+                              : isDark
+                                ? "bg-white/10 text-gray-400"
+                                : "bg-black/5 text-slate-500"
                           }`}
                         >
-                          Selected color
+                          Optional
+                        </span>
+                      </span>
+                      <span
+                        className={`block text-xs sm:text-sm mt-0.5 ${
+                          isDark ? "text-gray-400" : "text-slate-500"
+                        }`}
+                      >
+                        {customColorEnabled
+                          ? "Your confession card will use the color you pick below."
+                          : "Give your confession card a color of your choice."}
+                      </span>
+                    </label>
+
+                    <ToggleSwitch
+                      id="customColorEnabled"
+                      checked={customColorEnabled}
+                      onChange={setCustomColorEnabled}
+                      dark={isDark}
+                      activeClass="bg-violet-500"
+                    />
+                  </div>
+
+                  {customColorEnabled && (
+                    <div
+                      className={`px-4 sm:px-5 pb-5 pt-1 animate-[fadeIn_0.3s_ease] border-t ${
+                        isDark ? "border-violet-400/10" : "border-violet-200/60"
+                      }`}
+                    >
+                      <div className="w-full flex flex-col items-center justify-center">
+                        <div
+                          className={`rounded-2xl border p-5 shadow-xl flex flex-col items-center ${
+                            isDark
+                              ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800"
+                              : "border-black/10 bg-white"
+                          }`}
+                          style={{ width: "100%", maxWidth: 260 }}
+                        >
+                          <HexColorPicker
+                            color={customColor}
+                            onChange={setCustomColor}
+                            style={{
+                              width: "100%",
+                              maxWidth: 220,
+                              aspectRatio: "1/1",
+                              borderRadius: "1rem",
+                              boxShadow: "0 2px 16px 0 #0006",
+                            }}
+                          />
+                          <div className="mt-4 flex items-center gap-2">
+                            <span
+                              className="inline-block w-7 h-7 rounded-lg border border-white/20 shadow"
+                              style={{ background: customColor }}
+                            />
+                            <input
+                              type="text"
+                              value={customColor}
+                              onChange={(e) => setCustomColor(e.target.value)}
+                              className={`border rounded px-2 py-1 text-xs font-mono w-24 focus:outline-none focus:ring-2 focus:ring-violet-400 transition ${
+                                isDark
+                                  ? "bg-gray-900 border-white/10 text-white"
+                                  : "bg-white border-black/10 text-slate-900"
+                              }`}
+                              maxLength={7}
+                            />
+                          </div>
+                          <div
+                            className={`mt-1 text-xs text-center w-full ${
+                              isDark ? "text-gray-400" : "text-slate-500"
+                            }`}
+                          >
+                            Selected color
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
-                </Accordion>
+                </div>
 
                 {/* Attach Images */}
-                <Accordion
-                  id="extra-images"
-                  icon={<FaImage className="w-3.5 h-3.5" />}
-                  title="Attach photos"
-                  subtitle={
+                <div
+                  className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
                     attachedImages.length > 0
-                      ? `${attachedImages.length}/${MAX_IMAGES} added`
-                      : `Add up to ${MAX_IMAGES} images to your confession`
-                  }
-                  active={attachedImages.length > 0}
-                  open={openExtra === "images"}
-                  onToggle={() => toggleExtra("images")}
-                  dark={isDark}
+                      ? isDark
+                        ? "border-sky-400/40 bg-gradient-to-br from-sky-950/30 via-gray-900/90 to-black/90"
+                        : "border-sky-300 bg-gradient-to-br from-sky-50 via-white to-sky-50/60"
+                      : isDark
+                        ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
+                        : "border-black/10 bg-slate-50 hover:border-black/20"
+                  }`}
                 >
-                  <input
-                    ref={imageInputRef}
-                    id="confessionImage"
-                    type="file"
-                    accept={ALLOWED_IMAGE_TYPES.join(",")}
-                    multiple
-                    onChange={handleImageSelect}
-                    className="hidden"
-                  />
-
-                  <div
-                    onDrop={handleImageDrop}
-                    onDragOver={handleImageDragOver}
-                    onDragLeave={handleImageDragLeave}
-                    className={`rounded-lg border border-dashed p-2 transition-colors duration-200 ${
-                      isDraggingImage
-                        ? isDark
-                          ? "border-white/50 bg-white/5"
-                          : "border-black/40 bg-black/5"
-                        : "border-transparent"
-                    }`}
+                  <button
+                    type="button"
+                    onClick={() => toggleExtra("images")}
+                    aria-expanded={openExtra === "images"}
+                    aria-controls="extra-images-panel"
+                    className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 text-left"
                   >
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                      {attachedImages.map((img) => (
-                        <div key={img.id} className="relative aspect-square">
-                          <img
-                            src={img.previewUrl}
-                            alt="Selected attachment preview"
-                            className="w-full h-full rounded-lg border border-white/10 object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(img.id)}
-                            className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-lg transition"
-                            aria-label="Remove image"
-                            title="Remove image"
-                          >
-                            <FaTimesCircle className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                    <div
+                      className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
+                        attachedImages.length > 0
+                          ? "bg-sky-500/15 text-sky-400"
+                          : isDark
+                            ? "bg-white/5 text-gray-400"
+                            : "bg-black/5 text-slate-500"
+                      }`}
+                    >
+                      <FaImage className="text-xl" />
+                    </div>
 
-                      {attachedImages.length < MAX_IMAGES && (
-                        <label
-                          htmlFor="confessionImage"
-                          className={`flex flex-col items-center justify-center gap-1 aspect-square cursor-pointer border border-dashed rounded-lg text-[11px] sm:text-xs text-center px-1 transition ${
-                            isDark
-                              ? "border-white/20 text-gray-400 hover:border-white/40 hover:text-gray-200"
-                              : "border-black/20 text-slate-500 hover:border-black/40 hover:text-slate-700"
+                    <span className="flex-1 min-w-0">
+                      <span
+                        className={`flex items-center gap-2 font-bold text-sm sm:text-base ${
+                          isDark ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {attachedImages.length > 0
+                          ? `${attachedImages.length} Photo${attachedImages.length > 1 ? "s" : ""} Attached`
+                          : "No Photos Attached"}
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                            attachedImages.length > 0
+                              ? "bg-sky-500/15 text-sky-400"
+                              : isDark
+                                ? "bg-white/10 text-gray-400"
+                                : "bg-black/5 text-slate-500"
                           }`}
                         >
-                          <FaImage className="text-base" />
-                          {isDraggingImage ? "Drop here" : "Add or drop image"}
-                        </label>
+                          Optional
+                        </span>
+                      </span>
+                      <span
+                        className={`block text-xs sm:text-sm mt-0.5 ${
+                          isDark ? "text-gray-400" : "text-slate-500"
+                        }`}
+                      >
+                        {attachedImages.length > 0
+                          ? `Tap to manage — ${attachedImages.length}/${MAX_IMAGES} used`
+                          : `Add up to ${MAX_IMAGES} images to your confession`}
+                      </span>
+                    </span>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      {attachedImages.length > 0 && (
+                        <div className="hidden sm:flex -space-x-2">
+                          {attachedImages.slice(0, 3).map((img) => (
+                            <img
+                              key={img.id}
+                              src={img.previewUrl}
+                              alt=""
+                              className={`w-8 h-8 rounded-full object-cover border-2 ${
+                                isDark ? "border-gray-900" : "border-white"
+                              }`}
+                            />
+                          ))}
+                        </div>
                       )}
+                      <svg
+                        className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
+                          openExtra === "images" ? "rotate-180" : ""
+                        } ${isDark ? "text-gray-400" : "text-slate-500"}`}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
                     </div>
-                  </div>
+                  </button>
 
-                  {imageError && (
-                    <p className="mt-2 text-xs text-red-400 font-semibold">
-                      {imageError}
-                    </p>
-                  )}
-
-                  <p
-                    className={`mt-2 text-[11px] leading-relaxed ${
-                      isDark ? "text-red-400" : "text-slate-500"
+                  <div
+                    id="extra-images-panel"
+                    className={`grid transition-all duration-300 ease-in-out ${
+                      openExtra === "images"
+                        ? "grid-rows-[1fr] opacity-100"
+                        : "grid-rows-[0fr] opacity-0"
                     }`}
                   >
-                    Up to {MAX_IMAGES} images, {MAX_IMAGE_MB}MB each. Images are
-                    reviewed by our team before being shared. Do not upload
-                    nudity, gore, or anything illegal — violators will be
-                    permanently banned.
-                  </p>
-                </Accordion>
+                    <div className="overflow-hidden">
+                      <div
+                        className={`px-4 sm:px-5 pb-5 pt-1 border-t ${
+                          isDark ? "border-sky-400/10" : "border-sky-200/60"
+                        }`}
+                      >
+                        <input
+                          ref={imageInputRef}
+                          id="confessionImage"
+                          type="file"
+                          accept={ALLOWED_IMAGE_TYPES.join(",")}
+                          multiple
+                          onChange={handleImageSelect}
+                          className="hidden"
+                        />
+
+                        <div
+                          onDrop={handleImageDrop}
+                          onDragOver={handleImageDragOver}
+                          onDragLeave={handleImageDragLeave}
+                          className={`rounded-lg border border-dashed p-2 mt-3 transition-colors duration-200 ${
+                            isDraggingImage
+                              ? isDark
+                                ? "border-sky-400/60 bg-sky-400/5"
+                                : "border-sky-400/60 bg-sky-50"
+                              : "border-transparent"
+                          }`}
+                        >
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                            {attachedImages.map((img) => (
+                              <div
+                                key={img.id}
+                                className="relative aspect-square"
+                              >
+                                <img
+                                  src={img.previewUrl}
+                                  alt="Selected attachment preview"
+                                  className="w-full h-full rounded-lg border border-white/10 object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(img.id)}
+                                  className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-lg transition"
+                                  aria-label="Remove image"
+                                  title="Remove image"
+                                >
+                                  <FaTimesCircle className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+
+                            {attachedImages.length < MAX_IMAGES && (
+                              <label
+                                htmlFor="confessionImage"
+                                className={`flex flex-col items-center justify-center gap-1 aspect-square cursor-pointer border border-dashed rounded-lg text-[11px] sm:text-xs text-center px-1 transition ${
+                                  isDark
+                                    ? "border-white/20 text-gray-400 hover:border-sky-400/50 hover:text-sky-300"
+                                    : "border-black/20 text-slate-500 hover:border-sky-400/50 hover:text-sky-600"
+                                }`}
+                              >
+                                <FaImage className="text-base" />
+                                {isDraggingImage
+                                  ? "Drop here"
+                                  : "Add or drop image"}
+                              </label>
+                            )}
+                          </div>
+                        </div>
+
+                        {imageError && (
+                          <p className="mt-2 text-xs text-red-400 font-semibold">
+                            {imageError}
+                          </p>
+                        )}
+
+                        <p
+                          className={`mt-2 text-[11px] leading-relaxed ${
+                            isDark ? "text-gray-500" : "text-slate-500"
+                          }`}
+                        >
+                          Up to {MAX_IMAGES} images, {MAX_IMAGE_MB}MB each.
+                          Images are reviewed by our team before being shared.
+                          Do not upload nudity, gore, or anything illegal —
+                          violators will be permanently banned.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Username / Identity reveal */}
