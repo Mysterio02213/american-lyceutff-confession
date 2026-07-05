@@ -4,7 +4,6 @@ import React, {
   useMemo,
   useCallback,
   useRef,
-  useDeferredValue,
   memo,
 } from "react";
 import {
@@ -44,58 +43,40 @@ const SOFT_CHAR_CAP = 8000;
 const THEME_STORAGE_KEY = "confessionTheme";
 const DRAFT_STORAGE_KEY = "confessionDraft";
 const MAX_USERNAME_LENGTH = 30;
-// Instagram-style handle: letters, numbers, periods, underscores.
 const USERNAME_PATTERN = /^[a-zA-Z0-9._]{1,30}$/;
 
-// ---------------------------------------------------------------------------
 const IMGBB_API_KEY = import.meta.env.VITE_IMGBB_API_KEY;
 const MAX_IMAGE_MB = 32;
 const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 const MAX_IMAGES = 3;
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-];
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
 async function uploadImageToImgbb(file) {
   if (!IMGBB_API_KEY) {
     throw new Error(
       "Image hosting isn't configured. Set VITE_IMGBB_API_KEY to enable image uploads.",
     );
   }
-
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
-    reader.onerror = () =>
-      reject(new Error("Could not read the selected image."));
+    reader.onerror = () => reject(new Error("Could not read the selected image."));
     reader.readAsDataURL(file);
   });
-
   const formData = new FormData();
   formData.append("key", IMGBB_API_KEY);
   formData.append("image", base64);
-
   const res = await axios.post("https://api.imgbb.com/1/upload", formData);
   const data = res.data?.data;
   if (!data?.url) {
     throw new Error("Image upload failed. Please try again.");
   }
-  return {
-    url: data.url,
-    deleteUrl: data.delete_url || null,
-  };
+  return { url: data.url, deleteUrl: data.delete_url || null };
 }
 
-// ---------------------------------------------------------------------------
-// Profanity filter — built once, reused on every keystroke/submit instead of
-// re-instantiating the base filter and re-compiling the regex list each time.
-// ---------------------------------------------------------------------------
 const baseFilter = new Filter();
 
 const CUSTOM_PROFANITY_PATTERNS = [
-  // English
   "f\\s*u\\s*c\\s*k",
   "s\\s*h\\s*i\\s*t",
   "b\\s*i\\s*t\\s*c\\s*h",
@@ -109,7 +90,6 @@ const CUSTOM_PROFANITY_PATTERNS = [
   "s\\s*l\\s*u\\s*t",
   "n\\s*i\\s*g\\s*g\\s*a",
   "n\\s*i\\s*g\\s*g\\s*e\\s*r",
-  // Roman Urdu / Hindi
   "g\\s*a\\s*n\\s*d",
   "l\\s*o\\s*d\\s*a",
   "l\\s*u\\s*n\\s*d",
@@ -119,7 +99,6 @@ const CUSTOM_PROFANITY_PATTERNS = [
   "r\\s*a\\s*n\\s*d\\s*i",
   "r\\s*a\\s*n\\s*d\\s*y",
   "k\\s*a\\s*m\\s*i\\s*n\\s*i",
-  // Unicode / homoglyphs
   "ѕех",
   "ｓｅｘ",
   "fυck",
@@ -127,56 +106,14 @@ const CUSTOM_PROFANITY_PATTERNS = [
 ].map((p) => new RegExp(p, "i"));
 
 const DIRECT_PROFANITY_WORDS = new Set([
-  "fuck",
-  "shit",
-  "bitch",
-  "ass",
-  "asshole",
-  "bastard",
-  "cunt",
-  "dick",
-  "pussy",
-  "whore",
-  "slut",
-  "nigger",
-  "nigga",
-  "gand",
-  "gaand",
-  "loda",
-  "lora",
-  "lund",
-  "chod",
-  "choda",
-  "chodna",
-  "chutiya",
-  "bsdk",
-  "bhenchod",
-  "behnchod",
-  "mc",
-  "madarchod",
-  "randi",
-  "ghasti",
-  "bhosdike",
-  "bhosadi",
-  "penchod",
-  "maa ki chut",
-  "maa ka bhosda",
-  "behen ke laude",
-  "laundiya",
-  "chinal",
-  "khanki",
-  "randi baz",
-  "kamini",
-  "kutiya",
-  "kutti",
-  "saali",
-  "harami",
-  "haraamzada",
-  "kameena",
-  "suar",
-  "suar ki aulad",
-  "gandu",
-  "chodu",
+  "fuck", "shit", "bitch", "ass", "asshole", "bastard", "cunt", "dick",
+  "pussy", "whore", "slut", "nigger", "nigga",
+  "gand", "gaand", "loda", "lora", "lund", "chod", "choda", "chodna",
+  "chutiya", "bsdk", "bhenchod", "behnchod", "mc", "madarchod", "randi",
+  "ghasti", "bhosdike", "bhosadi", "penchod",
+  "maa ki chut", "maa ka bhosda", "behen ke laude", "laundiya", "chinal",
+  "khanki", "randi baz", "kamini", "kutiya", "kutti", "saali", "harami",
+  "haraamzada", "kameena", "suar", "suar ki aulad", "gandu", "chodu",
 ]);
 
 const LEET_MAP = { 1: "i", 3: "e", 4: "a", 5: "s", 0: "o", "@": "a", $: "s" };
@@ -186,53 +123,33 @@ function normalizeText(text) {
     .toLowerCase()
     .replace(/[^a-z0-9@$\s]/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/(.)\1{2,}/g, "$1") // fuuuuuck -> fuck
+    .replace(/(.)\1{2,}/g, "$1")
     .replace(/[0-9@$]/g, (char) => LEET_MAP[char] || char);
 }
 
 function containsProfanity(text) {
   if (!text) return false;
   const normalized = normalizeText(text);
-
   if (baseFilter.isProfane(normalized)) return true;
-  if (CUSTOM_PROFANITY_PATTERNS.some((regex) => regex.test(normalized))) {
-    return true;
-  }
-
+  if (CUSTOM_PROFANITY_PATTERNS.some((regex) => regex.test(normalized))) return true;
   const words = normalized.split(/\s+/);
   return words.some((word) => DIRECT_PROFANITY_WORDS.has(word));
 }
 
-// ---------------------------------------------------------------------------
-// Small presentational helpers
-// ---------------------------------------------------------------------------
+const cn = (cond, t, f) => (cond ? t : f);
 
-/** Unified toast — replaces four near-identical copy/pasted status blocks. */
-const Toast = memo(function Toast({
-  tone,
-  icon,
-  children,
-  visible,
-  dark = true,
-}) {
+const Toast = memo(function Toast({ tone, icon, children, visible, dark = true }) {
   const toneStyles = dark
     ? {
-        success:
-          "from-green-700/20 via-green-900/30 to-black/10 border-green-400/30 text-green-200",
-        error:
-          "from-red-700/20 via-red-900/30 to-black/10 border-red-400/30 text-red-200",
-        warning:
-          "from-yellow-700/20 via-yellow-900/30 to-black/10 border-yellow-400/30 text-yellow-200",
+        success: "from-green-700/20 via-green-900/30 to-black/10 border-green-400/30 text-green-200",
+        error: "from-red-700/20 via-red-900/30 to-black/10 border-red-400/30 text-red-200",
+        warning: "from-yellow-700/20 via-yellow-900/30 to-black/10 border-yellow-400/30 text-yellow-200",
       }
     : {
-        success:
-          "from-green-100 via-green-50 to-white border-green-400/50 text-green-800",
-        error:
-          "from-red-100 via-red-50 to-white border-red-400/50 text-red-800",
-        warning:
-          "from-amber-100 via-amber-50 to-white border-amber-400/50 text-amber-800",
+        success: "from-green-100 via-green-50 to-white border-green-400/50 text-green-800",
+        error: "from-red-100 via-red-50 to-white border-red-400/50 text-red-800",
+        warning: "from-amber-100 via-amber-50 to-white border-amber-400/50 text-amber-800",
       };
-
   return (
     <div
       role="status"
@@ -254,14 +171,9 @@ const WordCounter = memo(function WordCounter({ current, max, dark }) {
   const low = remaining <= max * 0.1;
   const empty = current === 0;
   const pct = Math.min(100, (current / max) * 100);
-
   return (
     <div className="absolute bottom-3 right-4 sm:bottom-4 sm:right-6 flex items-center gap-2">
-      <div
-        className={`hidden sm:block w-16 h-1 rounded-full overflow-hidden ${
-          dark ? "bg-white/10" : "bg-black/10"
-        }`}
-      >
+      <div className={`hidden sm:block w-16 h-1 rounded-full overflow-hidden ${dark ? "bg-white/10" : "bg-black/10"}`}>
         <div
           className={`h-full rounded-full transition-all duration-300 ${
             low ? "bg-amber-400" : dark ? "bg-white/50" : "bg-slate-500"
@@ -284,7 +196,6 @@ const WordCounter = memo(function WordCounter({ current, max, dark }) {
   );
 });
 
-/** Small line item used in the "what's left to do" submit checklist. */
 function ChecklistItem({ done, children }) {
   return (
     <li className="flex items-center gap-2">
@@ -298,15 +209,7 @@ function ChecklistItem({ done, children }) {
   );
 }
 
-/** iOS-style toggle switch, used wherever an on/off checkbox deserves more
- * visual weight than a plain checkbox (e.g. a decision with real stakes). */
-function ToggleSwitch({
-  checked,
-  onChange,
-  id,
-  dark,
-  activeClass = "bg-red-500",
-}) {
+function ToggleSwitch({ checked, onChange, id, dark, activeClass = "bg-red-500" }) {
   return (
     <button
       type="button"
@@ -327,20 +230,780 @@ function ToggleSwitch({
   );
 }
 
+const ThemeToggleBtn = memo(function ThemeToggleBtn({ isDark, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className={`fixed top-4 right-4 z-50 flex items-center gap-2 pl-3 pr-3.5 py-2.5 rounded-full border shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-105 active:scale-95 ${
+        isDark
+          ? "bg-white/10 border-white/15 text-white hover:bg-white/20"
+          : "bg-black/5 border-black/10 text-slate-800 hover:bg-black/10 shadow-slate-300/50"
+      }`}
+    >
+      {isDark ? <FaSun className="text-amber-300 text-sm" /> : <FaMoon className="text-indigo-500 text-sm" />}
+      <span className="hidden sm:inline text-xs font-semibold tracking-wide">
+        {isDark ? "Light mode" : "Dark mode"}
+      </span>
+    </button>
+  );
+});
+
+const BannedView = memo(function BannedView({ isDark, banReason, onThemeToggle }) {
+  return (
+    <div
+      className={`min-h-screen w-full flex items-center justify-center transition-colors duration-500 ${
+        isDark
+          ? "bg-gradient-to-br from-black via-gray-900 to-black"
+          : "bg-gradient-to-br from-slate-100 via-white to-slate-200"
+      }`}
+    >
+      <ThemeToggleBtn isDark={isDark} onToggle={onThemeToggle} />
+      <div className="max-w-md w-full mx-auto p-8 rounded-2xl bg-gradient-to-br from-gray-900/90 via-black/90 to-gray-800/90 border border-red-500/30 shadow-2xl flex flex-col items-center">
+        <FaBan className="text-red-400 text-5xl mb-4" />
+        <h2 className="text-2xl font-bold text-red-300 mb-2">Access Restricted</h2>
+        <p className="text-gray-300 text-center mb-2">
+          Your ability to submit confessions has been suspended.
+          <br />
+          {banReason && (
+            <span className="block mt-3 text-red-200 font-semibold">
+              <span className="text-red-300">Reason:</span> {banReason}
+              <br />
+              <span className="block mt-2 text-gray-300 font-normal">
+                If you believe this action was taken in error, please contact
+                our team on{" "}
+                <a
+                  href="https://www.instagram.com/americanlycetuff_confession/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-300 underline hover:text-blue-400 transition"
+                >
+                  (@americanlycetuff_confession)
+                </a>.
+              </span>
+            </span>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+});
+
+const FormHeader = memo(function FormHeader({ isDark }) {
+  return (
+    <header
+      className={`w-full text-center py-7 px-3 sm:py-10 sm:px-6 border-b ${
+        isDark
+          ? "bg-gradient-to-br from-black/80 via-gray-900/80 to-gray-800/80 border-white/10"
+          : "bg-gradient-to-br from-slate-50 via-white to-slate-100 border-black/10"
+      }`}
+    >
+      <h1
+        className={`text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent drop-shadow-lg mb-2 bg-gradient-to-r ${
+          isDark
+            ? "from-white via-gray-200 to-gray-400"
+            : "from-slate-900 via-slate-700 to-slate-500"
+        }`}
+      >
+        American Lycetuff Confessions
+      </h1>
+      <p className={`max-w-xl mx-auto text-base sm:text-lg ${isDark ? "text-gray-400" : "text-slate-600"}`}>
+        Share your thoughts anonymously and respectfully.
+      </p>
+    </header>
+  );
+});
+
+const DraftBanner = memo(function DraftBanner({ isDark, onDiscard }) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-lg border animate-[fadeIn_0.3s_ease] ${
+        isDark
+          ? "bg-blue-500/10 border-blue-400/20 text-blue-200"
+          : "bg-blue-50 border-blue-200 text-blue-700"
+      }`}
+    >
+      <span className="flex items-center gap-2">
+        <FaClock className="shrink-0" />
+        We restored your unsent draft.
+      </span>
+      <button
+        type="button"
+        onClick={onDiscard}
+        className="font-semibold underline underline-offset-2 hover:opacity-75 transition"
+      >
+        Discard
+      </button>
+    </div>
+  );
+});
+
+const TextareaSection = memo(function TextareaSection({
+  value,
+  onChange,
+  wordCount,
+  isDark,
+  submitAttempted,
+  onFocus,
+  onBlur,
+  draftRestored,
+  setDraftRestored,
+}) {
+  return (
+    <div className="relative group">
+      <label htmlFor="confession" className="sr-only">Your confession</label>
+      <textarea
+        id="confession"
+        onFocus={onFocus}
+        onBlur={onBlur}
+        className={`w-full min-h-[140px] sm:min-h-[200px] p-4 sm:p-6 rounded-xl sm:rounded-2xl border shadow-md focus:outline-none focus:ring-2 transition-all duration-300 resize-none text-base sm:text-lg ${
+          isDark
+            ? "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border-white/10 placeholder-gray-400 focus:ring-white/20 focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] group-hover:border-white/20"
+            : "bg-white text-slate-900 border-black/10 placeholder-slate-400 focus:ring-slate-400/40 group-hover:border-black/20"
+        } ${
+          submitAttempted && !value.trim()
+            ? isDark
+              ? "border-red-400/50 focus:ring-red-400/40"
+              : "border-red-400/60 focus:ring-red-400/30"
+            : ""
+        }`}
+        placeholder="Type your anonymous confession..."
+        value={value}
+        onChange={(e) => {
+          onChange(e);
+          if (draftRestored) setDraftRestored(false);
+        }}
+        required
+        maxLength={SOFT_CHAR_CAP}
+      />
+      <WordCounter current={wordCount} max={MAX_WORDS} dark={isDark} />
+    </div>
+  );
+});
+
+const CustomColorSection = memo(function CustomColorSection({
+  isDark,
+  enabled,
+  color,
+  onToggle,
+  onChange,
+}) {
+  return (
+    <div
+      className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
+        enabled
+          ? isDark
+            ? "border-violet-400/40 bg-gradient-to-br from-violet-950/30 via-gray-900/90 to-black/90"
+            : "border-violet-300 bg-gradient-to-br from-violet-50 via-white to-violet-50/60"
+          : isDark
+            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
+            : "border-black/10 bg-slate-50 hover:border-black/20"
+      }`}
+    >
+      <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
+        <div
+          className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
+            enabled
+              ? "bg-violet-500/15 text-violet-400"
+              : isDark
+                ? "bg-white/5 text-gray-400"
+                : "bg-black/5 text-slate-500"
+          }`}
+        >
+          {enabled ? (
+            <span className="w-5 h-5 rounded-full block border border-white/30 shadow-inner" style={{ background: color }} />
+          ) : (
+            <FaPalette className="text-xl" />
+          )}
+        </div>
+        <label htmlFor="customColorEnabled" className="flex-1 min-w-0 cursor-pointer">
+          <span className={`flex items-center gap-2 font-bold text-sm sm:text-base ${isDark ? "text-white" : "text-slate-900"}`}>
+            {enabled ? "Custom Color Enabled" : "Default Color"}
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                enabled
+                  ? "bg-violet-500/15 text-violet-400"
+                  : isDark
+                    ? "bg-white/10 text-gray-400"
+                    : "bg-black/5 text-slate-500"
+              }`}
+            >
+              Optional
+            </span>
+          </span>
+          <span className={`block text-xs sm:text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-slate-500"}`}>
+            {enabled
+              ? "Your confession card will use the color you pick below."
+              : "Give your confession card a color of your choice."}
+          </span>
+        </label>
+        <ToggleSwitch
+          id="customColorEnabled"
+          checked={enabled}
+          onChange={onToggle}
+          dark={isDark}
+          activeClass="bg-violet-500"
+        />
+      </div>
+      {enabled && (
+        <div className={`px-4 sm:px-5 pb-5 pt-1 animate-[fadeIn_0.3s_ease] border-t ${isDark ? "border-violet-400/10" : "border-violet-200/60"}`}>
+          <div className="w-full flex flex-col items-center justify-center">
+            <div
+              className={`rounded-2xl border p-5 shadow-xl flex flex-col items-center ${
+                isDark
+                  ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800"
+                  : "border-black/10 bg-white"
+              }`}
+              style={{ width: "100%", maxWidth: 260 }}
+            >
+              <HexColorPicker
+                color={color}
+                onChange={onChange}
+                style={{
+                  width: "100%",
+                  maxWidth: 220,
+                  aspectRatio: "1/1",
+                  borderRadius: "1rem",
+                  boxShadow: "0 2px 16px 0 #0006",
+                }}
+              />
+              <div className="mt-4 flex items-center gap-2">
+                <span className="inline-block w-7 h-7 rounded-lg border border-white/20 shadow" style={{ background: color }} />
+                <input
+                  type="text"
+                  value={color}
+                  onChange={(e) => onChange(e.target.value)}
+                  className={`border rounded px-2 py-1 text-xs font-mono w-24 focus:outline-none focus:ring-2 focus:ring-violet-400 transition ${
+                    isDark
+                      ? "bg-gray-900 border-white/10 text-white"
+                      : "bg-white border-black/10 text-slate-900"
+                  }`}
+                  maxLength={7}
+                />
+              </div>
+              <div className={`mt-1 text-xs text-center w-full ${isDark ? "text-gray-400" : "text-slate-500"}`}>
+                Selected color
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+const ImageSection = memo(function ImageSection({
+  isDark,
+  images,
+  openExtra,
+  onToggleExtra,
+  onImageSelect,
+  onRemoveImage,
+  onImageDrop,
+  onImageDragOver,
+  onImageDragLeave,
+  isDragging,
+  imageError,
+  imageInputRef,
+}) {
+  return (
+    <div
+      className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
+        images.length > 0
+          ? isDark
+            ? "border-sky-400/40 bg-gradient-to-br from-sky-950/30 via-gray-900/90 to-black/90"
+            : "border-sky-300 bg-gradient-to-br from-sky-50 via-white to-sky-50/60"
+          : isDark
+            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
+            : "border-black/10 bg-slate-50 hover:border-black/20"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => onToggleExtra("images")}
+        aria-expanded={openExtra === "images"}
+        aria-controls="extra-images-panel"
+        className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 text-left"
+      >
+        <div
+          className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
+            images.length > 0
+              ? "bg-sky-500/15 text-sky-400"
+              : isDark
+                ? "bg-white/5 text-gray-400"
+                : "bg-black/5 text-slate-500"
+          }`}
+        >
+          <FaImage className="text-xl" />
+        </div>
+        <span className="flex-1 min-w-0">
+          <span className={`flex items-center gap-2 font-bold text-sm sm:text-base ${isDark ? "text-white" : "text-slate-900"}`}>
+            {images.length > 0
+              ? `${images.length} Photo${images.length > 1 ? "s" : ""} Attached`
+              : "No Photos Attached"}
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                images.length > 0
+                  ? "bg-sky-500/15 text-sky-400"
+                  : isDark
+                    ? "bg-white/10 text-gray-400"
+                    : "bg-black/5 text-slate-500"
+              }`}
+            >
+              Optional
+            </span>
+          </span>
+          <span className={`block text-xs sm:text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-slate-500"}`}>
+            {images.length > 0
+              ? `Tap to manage — ${images.length}/${MAX_IMAGES} used`
+              : `Add up to ${MAX_IMAGES} images to your confession`}
+          </span>
+        </span>
+        <div className="flex items-center gap-3 shrink-0">
+          {images.length > 0 && (
+            <div className="hidden sm:flex -space-x-2">
+              {images.slice(0, 3).map((img) => (
+                <img
+                  key={img.id}
+                  src={img.previewUrl}
+                  alt=""
+                  className={`w-8 h-8 rounded-full object-cover border-2 ${isDark ? "border-gray-900" : "border-white"}`}
+                />
+              ))}
+            </div>
+          )}
+          <svg
+            className={`w-4 h-4 shrink-0 transition-transform duration-300 ${openExtra === "images" ? "rotate-180" : ""} ${isDark ? "text-gray-400" : "text-slate-500"}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+      <div
+        id="extra-images-panel"
+        className={`grid transition-all duration-300 ease-in-out ${
+          openExtra === "images" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className={`px-4 sm:px-5 pb-5 pt-1 border-t ${isDark ? "border-sky-400/10" : "border-sky-200/60"}`}>
+            <input
+              ref={imageInputRef}
+              id="confessionImage"
+              type="file"
+              accept={ALLOWED_IMAGE_TYPES.join(",")}
+              multiple
+              onChange={onImageSelect}
+              className="hidden"
+            />
+            <div
+              onDrop={onImageDrop}
+              onDragOver={onImageDragOver}
+              onDragLeave={onImageDragLeave}
+              className={`rounded-lg border border-dashed p-2 mt-3 transition-colors duration-200 ${
+                isDragging
+                  ? isDark
+                    ? "border-sky-400/60 bg-sky-400/5"
+                    : "border-sky-400/60 bg-sky-50"
+                  : "border-transparent"
+              }`}
+            >
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {images.map((img) => (
+                  <div key={img.id} className="relative aspect-square">
+                    <img
+                      src={img.previewUrl}
+                      alt="Selected attachment preview"
+                      className="w-full h-full rounded-lg border border-white/10 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onRemoveImage(img.id)}
+                      className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-lg transition"
+                      aria-label="Remove image"
+                      title="Remove image"
+                    >
+                      <FaTimesCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {images.length < MAX_IMAGES && (
+                  <label
+                    htmlFor="confessionImage"
+                    className={`flex flex-col items-center justify-center gap-1 aspect-square cursor-pointer border border-dashed rounded-lg text-[11px] sm:text-xs text-center px-1 transition ${
+                      isDark
+                        ? "border-white/20 text-gray-400 hover:border-sky-400/50 hover:text-sky-300"
+                        : "border-black/20 text-slate-500 hover:border-sky-400/50 hover:text-sky-600"
+                    }`}
+                  >
+                    <FaImage className="text-base" />
+                    {isDragging ? "Drop here" : "Add or drop image"}
+                  </label>
+                )}
+              </div>
+            </div>
+            {imageError && (
+              <p className="mt-2 text-xs text-red-400 font-semibold">{imageError}</p>
+            )}
+            <p className={`mt-2 text-[11px] leading-relaxed ${isDark ? "text-gray-500" : "text-slate-500"}`}>
+              Up to {MAX_IMAGES} images, {MAX_IMAGE_MB}MB each. Images are reviewed by our team before being shared. Do not upload nudity, gore, or anything illegal — violators will be permanently banned.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const IdentitySection = memo(function IdentitySection({
+  isDark,
+  showIdentity,
+  onToggle,
+  username,
+  usernameError,
+  usernameIsValid,
+  onUsernameChange,
+  onUsernameBlur,
+  identityConfirmed,
+  onConfirmChange,
+  usernameInputRef,
+}) {
+  return (
+    <div
+      className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
+        showIdentity
+          ? isDark
+            ? "border-red-400/40 bg-gradient-to-br from-red-950/30 via-gray-900/90 to-black/90"
+            : "border-red-300 bg-gradient-to-br from-red-50 via-white to-red-50/60"
+          : isDark
+            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
+            : "border-black/10 bg-slate-50 hover:border-black/20"
+      }`}
+    >
+      <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
+        <div
+          className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
+            showIdentity
+              ? "bg-red-500/15 text-red-400"
+              : isDark
+                ? "bg-white/5 text-gray-400"
+                : "bg-black/5 text-slate-500"
+          }`}
+        >
+          {showIdentity ? <FaUserCircle className="text-xl" /> : <FaEyeSlash className="text-xl" />}
+        </div>
+        <label htmlFor="showIdentity" className="flex-1 min-w-0 cursor-pointer">
+          <span className={`flex items-center gap-2 font-bold text-sm sm:text-base ${isDark ? "text-white" : "text-slate-900"}`}>
+            {showIdentity ? "Posting With Instagram Username" : "Posting Anonymously"}
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                showIdentity
+                  ? "bg-red-500/15 text-red-400"
+                  : isDark
+                    ? "bg-white/10 text-gray-400"
+                    : "bg-black/5 text-slate-500"
+              }`}
+            >
+              Optional
+            </span>
+          </span>
+          <span className={`block text-xs sm:text-sm mt-0.5 ${isDark ? "text-gray-400" : "text-slate-500"}`}>
+            {showIdentity
+              ? "Everyone will see this confession was sent by you."
+              : "Nobody will know this confession was from you."}
+          </span>
+        </label>
+        <ToggleSwitch id="showIdentity" checked={showIdentity} onChange={onToggle} dark={isDark} />
+      </div>
+      {showIdentity && (
+        <div className={`px-4 sm:px-5 pb-5 pt-1 space-y-4 animate-[fadeIn_0.3s_ease] border-t ${isDark ? "border-red-400/10" : "border-red-200/60"}`}>
+          <div className={`flex items-start gap-2 text-xs rounded-lg p-3 ${isDark ? "bg-red-500/10 text-red-200" : "bg-red-100/70 text-red-700"}`}>
+            <FaExclamationTriangle className="shrink-0 mt-0.5" />
+            <span>
+              Only turn this on if you're okay with your username being public. It can't be undone once your confession is sent.
+            </span>
+          </div>
+          <div>
+            <label htmlFor="username" className={`block text-xs font-semibold mb-1.5 ${isDark ? "text-gray-300" : "text-slate-600"}`}>
+              Your username
+            </label>
+            <div className="relative">
+              <span className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-mono select-none ${isDark ? "text-gray-500" : "text-slate-400"}`}>
+                @
+              </span>
+              <input
+                ref={usernameInputRef}
+                id="username"
+                type="text"
+                inputMode="text"
+                placeholder="yourusername"
+                value={username}
+                onChange={onUsernameChange}
+                onBlur={onUsernameBlur}
+                className={`border-2 rounded-xl pl-8 pr-10 py-3 text-sm font-mono w-full focus:outline-none focus:ring-4 transition-all duration-200 ${
+                  usernameError
+                    ? "border-red-400 focus:ring-red-400/20"
+                    : username && usernameIsValid
+                      ? "border-emerald-400/60 focus:ring-emerald-400/20"
+                      : isDark
+                        ? "border-white/10 focus:ring-red-400/20 focus:border-red-400/50"
+                        : "border-black/10 focus:ring-red-400/10 focus:border-red-300"
+                } ${isDark ? "bg-black/40 text-white" : "bg-white text-slate-900"}`}
+                maxLength={MAX_USERNAME_LENGTH}
+                aria-invalid={!!usernameError}
+                aria-describedby="username-hint"
+              />
+              {username && usernameIsValid && (
+                <FaCheckCircle className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400" />
+              )}
+            </div>
+            <div id="username-hint" className="mt-1.5 flex items-center justify-between text-[11px]">
+              <span className={usernameError ? "text-red-400 font-medium" : cn(isDark, "text-gray-500", "text-slate-500")}>
+                {usernameError || "Letters, numbers, periods and underscores."}
+              </span>
+              <span className={`font-mono ${isDark ? "text-gray-500" : "text-slate-500"}`}>
+                {username.length}/{MAX_USERNAME_LENGTH}
+              </span>
+            </div>
+          </div>
+          <label
+            className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors duration-200 ${
+              identityConfirmed
+                ? isDark
+                  ? "border-emerald-400/40 bg-emerald-500/10"
+                  : "border-emerald-300 bg-emerald-50"
+                : isDark
+                  ? "border-white/10 bg-black/20"
+                  : "border-black/10 bg-white"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={identityConfirmed}
+              onChange={onConfirmChange}
+              className={`scale-110 mt-0.5 shrink-0 transition-all duration-200 ${isDark ? "accent-emerald-400" : "accent-emerald-600"}`}
+            />
+            <span className={`text-xs sm:text-sm ${isDark ? "text-gray-300" : "text-slate-600"}`}>
+              I confirm this username is accurate and I want it shown publicly with my confession.
+            </span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+});
+
+const TermsSection = memo(function TermsSection({ isDark, agreed, onChange }) {
+  return (
+    <div
+      className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-5 rounded-xl sm:rounded-2xl border shadow group transition-all duration-300 ${
+        isDark
+          ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 hover:border-white/30 hover:shadow-lg"
+          : "bg-slate-50 border-black/10 hover:border-black/20 hover:shadow-lg"
+      }`}
+    >
+      <input
+        type="checkbox"
+        id="terms"
+        checked={agreed}
+        onChange={onChange}
+        required
+        className={`scale-110 sm:scale-125 mt-1 transition-all duration-200 ${isDark ? "accent-white" : "accent-slate-700"}`}
+      />
+      <label htmlFor="terms" className={`text-xs sm:text-sm cursor-pointer ${isDark ? "text-gray-300" : "text-slate-600"}`}>
+        <p className={`font-semibold mb-1 tracking-wide ${isDark ? "text-white" : "text-slate-900"}`}>
+          Important Disclaimer
+        </p>
+        <p>
+          By checking this box, you accept our{" "}
+          <a
+            href="/terms"
+            className={isDark ? "text-gray-400 underline hover:text-gray-300 transition" : "text-slate-500 underline hover:text-slate-700 transition"}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Terms and Conditions
+          </a>.
+        </p>
+      </label>
+    </div>
+  );
+});
+
+const SubmitButton = memo(function SubmitButton({ isDark, loading, imageUploading, canSubmit, showIdentity }) {
+  return (
+    <button
+      type="submit"
+      disabled={loading}
+      aria-disabled={!canSubmit}
+      className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border hover:scale-105 hover:shadow-2xl active:scale-95 ${
+        isDark
+          ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:border-white/30 hover:from-gray-800 hover:via-gray-900 hover:to-black"
+          : "border-black/10 bg-gradient-to-br from-slate-800 via-slate-900 to-black text-white hover:border-black/30 hover:from-slate-700 hover:via-slate-800 hover:to-slate-900"
+      } ${!canSubmit ? "opacity-60 cursor-not-allowed hover:scale-100" : ""}`}
+    >
+      {loading ? (
+        <>
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+          {imageUploading ? "Uploading image..." : "Sending..."}
+        </>
+      ) : (
+        <>
+          <FaPaperPlane className="text-white drop-shadow" />
+          <span className="drop-shadow">
+            Send {showIdentity ? "" : "Anonymously"}
+          </span>
+        </>
+      )}
+    </button>
+  );
+});
+
+const FeedbackToasts = memo(function FeedbackToasts({
+  isDark,
+  formError,
+  success,
+  showFeedback,
+  cooldownError,
+  profanityError,
+  showIdentity,
+  identityConfirmed,
+}) {
+  return (
+    <div className="px-4 sm:px-8 md:px-12 pb-6 sm:pb-8 space-y-2 sm:space-y-3">
+      {formError && (
+        <div className={`p-3 rounded-lg border font-semibold text-sm text-center mb-2 ${
+          isDark
+            ? "bg-red-900/80 border-red-400/30 text-red-200"
+            : "bg-red-100 border-red-300 text-red-700"
+        }`}>
+          {formError}
+        </div>
+      )}
+      {success === true && (
+        <Toast tone="success" visible={showFeedback} dark={isDark} icon={<FaCheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />}>
+          Confession sent{showIdentity && identityConfirmed ? "" : " anonymously"}!
+        </Toast>
+      )}
+      {success === false && (
+        <Toast tone="error" visible={showFeedback} dark={isDark} icon={<FaExclamationTriangle className="w-4 h-4 sm:w-5 sm:h-5" />}>
+          Failed to send message. Please try again.
+        </Toast>
+      )}
+      {cooldownError && (
+        <Toast tone="warning" visible={showFeedback} dark={isDark} icon={<FaClock className="w-4 h-4 sm:w-5 sm:h-5" />}>
+          Please wait 1 minute before sending another confession.
+        </Toast>
+      )}
+      {profanityError && (
+        <Toast tone="error" visible={showFeedback} dark={isDark} icon={<FaExclamationTriangle className="w-4 h-4 sm:w-5 sm:h-5" />}>
+          Your confession contains inappropriate language. Please remove it.
+        </Toast>
+      )}
+    </div>
+  );
+});
+
+const SecurityFooter = memo(function SecurityFooter({ isDark, showIdentity }) {
+  return (
+    <div
+      className={`p-3 sm:p-4 border-t flex items-center justify-center gap-2 text-xs sm:text-sm shadow-inner ${
+        isDark
+          ? "bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-white/10 text-gray-300"
+          : "bg-slate-50 border-black/10 text-slate-600"
+      }`}
+    >
+      <FaLock className={isDark ? "text-white" : "text-slate-700"} />
+      <span>
+        {showIdentity
+          ? "Your confession is transmitted securely."
+          : "Your confession is end-to-end anonymous and secure"}
+      </span>
+    </div>
+  );
+});
+
+const InstagramLinks = memo(function InstagramLinks({ isDark }) {
+  return (
+    <div className="mt-8 mb-4 flex flex-col md:flex-row justify-center gap-5 sm:gap-8 z-10 w-full px-2">
+      <div className="flex flex-col md:flex-row justify-center items-center gap-5 sm:gap-8 w-full">
+        <a
+          href="https://www.instagram.com/americanlycetuff_confession/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`inline-flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl border shadow-lg hover:scale-105 hover:shadow-2xl transition-all duration-300 group w-full max-w-xs min-w-[260px] justify-center ${
+            isDark
+              ? "bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-white/10 hover:border-white/30"
+              : "bg-white border-black/10 hover:border-black/30"
+          }`}
+          style={{ minWidth: 260 }}
+        >
+          <div className={`p-2 sm:p-3 rounded-lg sm:rounded-xl shadow border transition ${
+            isDark
+              ? "bg-black border-white/20 group-hover:border-white/40"
+              : "bg-slate-900 border-black/20 group-hover:border-black/40"
+          }`}>
+            <FaInstagram className="text-white text-xl sm:text-2xl group-hover:scale-110 transition" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <p className={`text-xs transition whitespace-nowrap ${isDark ? "text-gray-500 group-hover:text-white" : "text-slate-400 group-hover:text-slate-900"}`}>
+              Confession Page
+            </p>
+            <p className={`font-medium transition whitespace-nowrap ${isDark ? "text-white group-hover:text-gray-200" : "text-slate-900 group-hover:text-slate-700"}`}>
+              americanlycetuff_confession
+            </p>
+          </div>
+        </a>
+      </div>
+    </div>
+  );
+});
+
+const SiteFooter = memo(function SiteFooter({ isDark }) {
+  return (
+    <footer
+      className={`relative z-10 w-full text-center py-4 sm:py-6 text-xs sm:text-sm border-t mt-auto px-2 ${
+        isDark
+          ? "text-gray-500 border-white/5"
+          : "text-slate-500 border-black/10"
+      }`}
+    >
+      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-2">
+        <p>© {new Date().getFullYear()} American Lycetuff Confessions. Everything Is Anonymous.</p>
+        <span className="hidden sm:inline opacity-50">•</span>
+        <a
+          href="/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`inline-block px-2 py-1 font-semibold text-xs underline transition ${
+            isDark
+              ? "text-gray-400 hover:text-gray-200"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Terms and Conditions
+        </a>
+      </div>
+    </footer>
+  );
+});
+
 export default function ConfessionPage() {
-  // Theme: dark by default, persisted across visits.
   const [theme, setTheme] = useState(() => {
     if (typeof window === "undefined") return "dark";
     return localStorage.getItem(THEME_STORAGE_KEY) || "dark";
   });
   const isDark = theme === "dark";
+  const messageRef = useRef("");
 
   useEffect(() => {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   const [message, setMessage] = useState("");
-  const deferredMessage = useDeferredValue(message);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
@@ -354,7 +1017,6 @@ export default function ConfessionPage() {
   const [isBanned, setIsBanned] = useState(false);
   const [banReason, setBanReason] = useState("");
 
-  // Username / identity reveal
   const [showIdentity, setShowIdentity] = useState(false);
   const [username, setUsername] = useState("");
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
@@ -380,28 +1042,28 @@ export default function ConfessionPage() {
   const imageInputRef = useRef(null);
   const nextImageId = useRef(0);
 
+  // Keep messageRef in sync
+  messageRef.current = message;
+
   const wordCount = useMemo(() => {
-    const trimmed = deferredMessage.trim();
+    const trimmed = message.trim();
     return trimmed ? trimmed.split(/\s+/).length : 0;
-  }, [deferredMessage]);
+  }, [message]);
 
   const updatePresence = useCallback(async (status = "active") => {
     if (!presenceSessionRef.current) return;
     try {
       await setDoc(
         firestoreDoc(db, "confessionPresence", presenceSessionRef.current),
-        {
-          status,
-          page: "confession",
-          lastSeen: Timestamp.now(),
-        },
+        { status, page: "confession", lastSeen: Timestamp.now() },
         { merge: true },
       );
     } catch {
-      // Ignore presence write failures to avoid disrupting the confessions flow.
+      // Ignore presence write failures
     }
   }, []);
 
+  // Merged presence effect — no `message` dependency, uses ref instead
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
@@ -420,7 +1082,7 @@ export default function ConfessionPage() {
         presenceStatusRef.current = "away";
         void updatePresence("away");
       } else {
-        presenceStatusRef.current = message.trim() ? "typing" : "active";
+        presenceStatusRef.current = messageRef.current.trim() ? "typing" : "active";
         void updatePresence(presenceStatusRef.current);
       }
     };
@@ -443,22 +1105,21 @@ export default function ConfessionPage() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       handleBeforeUnload();
     };
-  }, [message, updatePresence]);
+  }, [updatePresence]);
 
+  // Typing debounce effect — still depends on message but only sets a timer
   useEffect(() => {
     const timer = setTimeout(() => {
       const newStatus = message.trim() ? "typing" : "active";
-
       if (presenceStatusRef.current !== newStatus) {
         presenceStatusRef.current = newStatus;
         void updatePresence(newStatus);
       }
     }, 800);
-
     return () => clearTimeout(timer);
   }, [message, updatePresence]);
 
-  // Restore an unsent draft once, on first mount.
+  // Restore draft on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
@@ -467,13 +1128,11 @@ export default function ConfessionPage() {
         setDraftRestored(true);
       }
     } catch {
-      // localStorage unavailable (private mode etc.) — fail silently.
+      // localStorage unavailable
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep the draft in sync while the user types, and clear it once the
-  // textarea is emptied so an old draft can't reappear later.
+  // Persist draft
   useEffect(() => {
     const saveTimer = window.setTimeout(() => {
       try {
@@ -486,7 +1145,6 @@ export default function ConfessionPage() {
         // ignore
       }
     }, 250);
-
     return () => window.clearTimeout(saveTimer);
   }, [message]);
 
@@ -494,14 +1152,11 @@ export default function ConfessionPage() {
     const value = e.target.value;
     const trimmed = value.trim();
     const words = trimmed ? trimmed.split(/\s+/) : [];
-
     setMessage(
       words.length > MAX_WORDS ? words.slice(0, MAX_WORDS).join(" ") : value,
     );
   }, []);
 
-  // Sanitize username as the user types: strip spaces/@ and disallowed chars,
-  // cap length. This keeps the field always valid instead of erroring on submit.
   const handleUsernameChange = useCallback((e) => {
     const raw = e.target.value;
     const cleaned = raw
@@ -521,13 +1176,9 @@ export default function ConfessionPage() {
         ? "Letters, numbers, periods and underscores only."
         : "";
 
-  // Validates and previews chosen image(s); the actual upload happens on
-  // submit so a user can change their mind without wasting an upload.
-  // Accepts as many of the newly-picked files as fit under MAX_IMAGES,
-  // and reports how many (if any) had to be skipped and why.
   const handleImageSelect = useCallback((e) => {
     const files = Array.from(e.target.files || []);
-    e.target.value = ""; // allow re-selecting the same file later
+    e.target.value = "";
     if (files.length === 0) return;
 
     setAttachedImages((prev) => {
@@ -585,8 +1236,16 @@ export default function ConfessionPage() {
     setImageError("");
   }, []);
 
-  // Drag-and-drop reuses the exact same validation path as the file picker
-  // (handleImageSelect) so dropped files get identical type/size/limit checks.
+  // Clean up blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      setAttachedImages((prev) => {
+        prev.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+        return [];
+      });
+    };
+  }, []);
+
   const handleImageDrop = useCallback(
     (e) => {
       e.preventDefault();
@@ -599,10 +1258,12 @@ export default function ConfessionPage() {
     },
     [handleImageSelect],
   );
+
   const handleImageDragOver = useCallback((e) => {
     e.preventDefault();
     setIsDraggingImage(true);
   }, []);
+
   const handleImageDragLeave = useCallback((e) => {
     e.preventDefault();
     setIsDraggingImage(false);
@@ -610,7 +1271,6 @@ export default function ConfessionPage() {
 
   useEffect(() => {
     if (showIdentity) {
-      // Focus the field the moment the option is revealed.
       requestAnimationFrame(() => usernameInputRef.current?.focus());
     } else {
       setUsername("");
@@ -634,14 +1294,13 @@ export default function ConfessionPage() {
   useEffect(() => {
     const parser = new UAParser();
     const result = parser.getResult();
-    const deviceInfoString = `
-      OS: ${result.os.name || "Unknown"} ${result.os.version || ""}
-      | Browser: ${result.browser.name || "Unknown"} ${result.browser.version || ""}
-      | Device Type: ${result.device.type || "Desktop"}
-      | Device Brand: ${result.device.vendor || "Unknown"}
-      | Device Model: ${result.device.model || "Unknown"}
-    `
-      .replace(/\s+/g, " ")
+    const deviceInfoString = [
+      `OS: ${result.os.name || "Unknown"} ${result.os.version || ""}`,
+      `Browser: ${result.browser.name || "Unknown"} ${result.browser.version || ""}`,
+      `Device Type: ${result.device.type || "Desktop"}`,
+      `Device Model: ${result.device.vendor || ""} ${result.device.model || ""}`,
+    ]
+      .join(" | ")
       .trim();
     setDeviceInfo(deviceInfoString);
   }, []);
@@ -740,8 +1399,7 @@ export default function ConfessionPage() {
           } catch (imgErr) {
             console.error("Image upload failed:", imgErr);
             setFormError(
-              imgErr?.message ||
-                "Failed to upload one of your images. Remove it or try again.",
+              imgErr?.message || "Failed to upload one of your images. Remove it or try again.",
             );
             setImageUploading(false);
             setLoading(false);
@@ -757,17 +1415,13 @@ export default function ConfessionPage() {
           ipAddress: ip,
           deviceInfo,
           customColor: customColorEnabled ? customColor : null,
-          // Field names kept as instagramUsername/identityConfirmed for
-          // backward compatibility with the Admin dashboard.
           instagramUsername: showIdentity ? username.trim() : null,
           identityConfirmed: showIdentity ? identityConfirmed : false,
           images: uploadedImages,
         });
         await sendToDiscord(
           uploadedImages.length > 0
-            ? `${message}\n\n[${uploadedImages.length} image(s) attached: ${uploadedImages
-                .map((img) => img.url)
-                .join(", ")}]`
+            ? `${message}\n\n[${uploadedImages.length} image(s) attached: ${uploadedImages.map((img) => img.url).join(", ")}]`
             : message,
         );
         localStorage.setItem("lastConfessionTime", now.toString());
@@ -812,9 +1466,7 @@ export default function ConfessionPage() {
 
   const canSubmit = useMemo(() => {
     if (loading || imageUploading || !agreed || !message.trim()) return false;
-    if (showIdentity && (!usernameIsValid || !username || !identityConfirmed)) {
-      return false;
-    }
+    if (showIdentity && (!usernameIsValid || !username || !identityConfirmed)) return false;
     return true;
   }, [
     loading,
@@ -827,71 +1479,54 @@ export default function ConfessionPage() {
     identityConfirmed,
   ]);
 
-  const themeToggle = (
-    <button
-      type="button"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className={`fixed top-4 right-4 z-50 flex items-center gap-2 pl-3 pr-3.5 py-2.5 rounded-full border shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-105 active:scale-95 ${
-        isDark
-          ? "bg-white/10 border-white/15 text-white hover:bg-white/20"
-          : "bg-black/5 border-black/10 text-slate-800 hover:bg-black/10 shadow-slate-300/50"
-      }`}
-    >
-      {isDark ? (
-        <FaSun className="text-amber-300 text-sm" />
-      ) : (
-        <FaMoon className="text-indigo-500 text-sm" />
-      )}
-      <span className="hidden sm:inline text-xs font-semibold tracking-wide">
-        {isDark ? "Light mode" : "Dark mode"}
-      </span>
-    </button>
-  );
+  const handleTextareaFocus = useCallback(() => {
+    presenceStatusRef.current = "typing";
+    void updatePresence("typing");
+  }, [updatePresence]);
+
+  const handleTextareaBlur = useCallback(() => {
+    presenceStatusRef.current = "active";
+    void updatePresence("active");
+  }, [updatePresence]);
+
+  const handleThemeToggle = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
+
+  const handleAgreedChange = useCallback((e) => {
+    setAgreed(e.target.checked);
+  }, []);
+
+  const handleIdentityToggle = useCallback((val) => {
+    setShowIdentity(val);
+  }, []);
+
+  const handleUsernameBlur = useCallback(() => {
+    setUsernameTouched(true);
+  }, []);
+
+  const handleConfirmChange = useCallback((e) => {
+    setIdentityConfirmed(e.target.checked);
+  }, []);
+
+  const handleColorToggle = useCallback((val) => {
+    setCustomColorEnabled(val);
+  }, []);
+
+  const handleColorChange = useCallback((val) => {
+    setCustomColor(val);
+  }, []);
+
+  const handleDiscardDraft = useCallback(() => {
+    setMessage("");
+    setDraftRestored(false);
+  }, []);
 
   if (isBanned) {
-    return (
-      <div
-        className={`min-h-screen w-full flex items-center justify-center transition-colors duration-500 ${
-          isDark
-            ? "bg-gradient-to-br from-black via-gray-900 to-black"
-            : "bg-gradient-to-br from-slate-100 via-white to-slate-200"
-        }`}
-      >
-        {themeToggle}
-        <div className="max-w-md w-full mx-auto p-8 rounded-2xl bg-gradient-to-br from-gray-900/90 via-black/90 to-gray-800/90 border border-red-500/30 shadow-2xl flex flex-col items-center">
-          <FaBan className="text-red-400 text-5xl mb-4" />
-          <h2 className="text-2xl font-bold text-red-300 mb-2">
-            Access Restricted
-          </h2>
-          <p className="text-gray-300 text-center mb-2">
-            Your ability to submit confessions has been suspended.
-            <br />
-            {banReason && (
-              <span className="block mt-3 text-red-200 font-semibold">
-                <span className="text-red-300">Reason:</span> {banReason}
-                <br />
-                <span className="block mt-2 text-gray-300 font-normal">
-                  If you believe this action was taken in error, please contact
-                  our team on{" "}
-                  <a
-                    href="https://www.instagram.com/americanlycetuff_confession/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-300 underline hover:text-blue-400 transition"
-                  >
-                    (@americanlycetuff_confession)
-                  </a>
-                  .
-                </span>
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
-    );
+    return <BannedView isDark={isDark} banReason={banReason} onThemeToggle={handleThemeToggle} />;
   }
+
+  const showStartOver = message || attachedImages.length > 0 || customColorEnabled || showIdentity;
 
   return (
     <div
@@ -901,7 +1536,7 @@ export default function ConfessionPage() {
           : "bg-gradient-to-br from-slate-100 via-white to-slate-200 text-slate-900"
       }`}
     >
-      {themeToggle}
+      <ThemeToggleBtn isDark={isDark} onToggle={handleThemeToggle} />
 
       <div className="flex-1 w-full flex flex-col items-center justify-center px-2 sm:px-4 py-10">
         <div className="relative w-full max-w-2xl mx-auto">
@@ -928,50 +1563,20 @@ export default function ConfessionPage() {
                 : "border-black/10 bg-white/90"
             }`}
           >
-            {/* Header */}
-            <header
-              className={`w-full text-center py-7 px-3 sm:py-10 sm:px-6 border-b ${
-                isDark
-                  ? "bg-gradient-to-br from-black/80 via-gray-900/80 to-gray-800/80 border-white/10"
-                  : "bg-gradient-to-br from-slate-50 via-white to-slate-100 border-black/10"
-              }`}
-            >
-              <h1
-                className={`text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent drop-shadow-lg mb-2 bg-gradient-to-r ${
-                  isDark
-                    ? "from-white via-gray-200 to-gray-400"
-                    : "from-slate-900 via-slate-700 to-slate-500"
-                }`}
-              >
-                American Lycetuff Confessions
-              </h1>
-              <p
-                className={`max-w-xl mx-auto text-base sm:text-lg ${
-                  isDark ? "text-gray-400" : "text-slate-600"
-                }`}
-              >
-                Share your thoughts anonymously and respectfully.
-              </p>
-            </header>
+            <FormHeader isDark={isDark} />
 
-            {/* Form */}
             <form
               onSubmit={handleSubmit}
               className="p-4 sm:p-8 md:p-12 space-y-6 sm:space-y-8"
               noValidate
             >
-              {(message ||
-                attachedImages.length > 0 ||
-                customColorEnabled ||
-                showIdentity) && (
+              {showStartOver && (
                 <div className="flex justify-end -mb-2">
                   <button
                     type="button"
                     onClick={resetForm}
                     className={`text-xs font-semibold underline underline-offset-2 transition ${
-                      isDark
-                        ? "text-gray-500 hover:text-gray-300"
-                        : "text-slate-400 hover:text-slate-600"
+                      isDark ? "text-gray-500 hover:text-gray-300" : "text-slate-400 hover:text-slate-600"
                     }`}
                   >
                     Start over
@@ -980,656 +1585,66 @@ export default function ConfessionPage() {
               )}
 
               {draftRestored && (
-                <div
-                  className={`flex items-center justify-between gap-3 text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-lg border animate-[fadeIn_0.3s_ease] ${
-                    isDark
-                      ? "bg-blue-500/10 border-blue-400/20 text-blue-200"
-                      : "bg-blue-50 border-blue-200 text-blue-700"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <FaClock className="shrink-0" />
-                    We restored your unsent draft.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMessage("");
-                      setDraftRestored(false);
-                    }}
-                    className="font-semibold underline underline-offset-2 hover:opacity-75 transition"
-                  >
-                    Discard
-                  </button>
-                </div>
+                <DraftBanner isDark={isDark} onDiscard={handleDiscardDraft} />
               )}
 
-              {/* Textarea */}
-              <div className="relative group">
-                <label htmlFor="confession" className="sr-only">
-                  Your confession
-                </label>
-                <textarea
-                  id="confession"
-                  onFocus={() => {
-                    presenceStatusRef.current = "typing";
-                    void updatePresence("typing");
-                  }}
-                  onBlur={() => {
-                    presenceStatusRef.current = "active";
-                    void updatePresence("active");
-                  }}
-                  className={`w-full min-h-[140px] sm:min-h-[200px] p-4 sm:p-6 rounded-xl sm:rounded-2xl border shadow-md focus:outline-none focus:ring-2 transition-all duration-300 resize-none text-base sm:text-lg ${
-                    isDark
-                      ? "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border-white/10 placeholder-gray-400 focus:ring-white/20 focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] group-hover:border-white/20"
-                      : "bg-white text-slate-900 border-black/10 placeholder-slate-400 focus:ring-slate-400/40 group-hover:border-black/20"
-                  } ${
-                    submitAttempted && !message.trim()
-                      ? isDark
-                        ? "border-red-400/50 focus:ring-red-400/40"
-                        : "border-red-400/60 focus:ring-red-400/30"
-                      : ""
-                  }`}
-                  placeholder="Type your anonymous confession..."
-                  value={message}
-                  onChange={(e) => {
-                    handleMessageChange(e);
-                    if (draftRestored) setDraftRestored(false);
-                  }}
-                  required
-                  maxLength={SOFT_CHAR_CAP}
-                />
-                <WordCounter
-                  current={wordCount}
-                  max={MAX_WORDS}
-                  dark={isDark}
-                />
-              </div>
+              <TextareaSection
+                value={message}
+                onChange={handleMessageChange}
+                wordCount={wordCount}
+                isDark={isDark}
+                submitAttempted={submitAttempted}
+                onFocus={handleTextareaFocus}
+                onBlur={handleTextareaBlur}
+                draftRestored={draftRestored}
+                setDraftRestored={setDraftRestored}
+              />
 
-              {/* Extras: collapsed by default so the form opens light and simple */}
               <div className="space-y-3">
-                <p
-                  className={`text-xs font-semibold uppercase tracking-wider ${
-                    isDark ? "text-gray-500" : "text-slate-400"
-                  }`}
-                >
+                <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-500" : "text-slate-400"}`}>
                   EXTRAS
                 </p>
 
-                {/* Custom Color */}
-                <div
-                  className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
-                    customColorEnabled
-                      ? isDark
-                        ? "border-violet-400/40 bg-gradient-to-br from-violet-950/30 via-gray-900/90 to-black/90"
-                        : "border-violet-300 bg-gradient-to-br from-violet-50 via-white to-violet-50/60"
-                      : isDark
-                        ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
-                        : "border-black/10 bg-slate-50 hover:border-black/20"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
-                    <div
-                      className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
-                        customColorEnabled
-                          ? "bg-violet-500/15 text-violet-400"
-                          : isDark
-                            ? "bg-white/5 text-gray-400"
-                            : "bg-black/5 text-slate-500"
-                      }`}
-                    >
-                      {customColorEnabled ? (
-                        <span
-                          className="w-5 h-5 rounded-full block border border-white/30 shadow-inner"
-                          style={{ background: customColor }}
-                        />
-                      ) : (
-                        <FaPalette className="text-xl" />
-                      )}
-                    </div>
-
-                    <label
-                      htmlFor="customColorEnabled"
-                      className="flex-1 min-w-0 cursor-pointer"
-                    >
-                      <span
-                        className={`flex items-center gap-2 font-bold text-sm sm:text-base ${
-                          isDark ? "text-white" : "text-slate-900"
-                        }`}
-                      >
-                        {customColorEnabled
-                          ? "Custom Color Enabled"
-                          : "Default Color"}
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
-                            customColorEnabled
-                              ? "bg-violet-500/15 text-violet-400"
-                              : isDark
-                                ? "bg-white/10 text-gray-400"
-                                : "bg-black/5 text-slate-500"
-                          }`}
-                        >
-                          Optional
-                        </span>
-                      </span>
-                      <span
-                        className={`block text-xs sm:text-sm mt-0.5 ${
-                          isDark ? "text-gray-400" : "text-slate-500"
-                        }`}
-                      >
-                        {customColorEnabled
-                          ? "Your confession card will use the color you pick below."
-                          : "Give your confession card a color of your choice."}
-                      </span>
-                    </label>
-
-                    <ToggleSwitch
-                      id="customColorEnabled"
-                      checked={customColorEnabled}
-                      onChange={setCustomColorEnabled}
-                      dark={isDark}
-                      activeClass="bg-violet-500"
-                    />
-                  </div>
-
-                  {customColorEnabled && (
-                    <div
-                      className={`px-4 sm:px-5 pb-5 pt-1 animate-[fadeIn_0.3s_ease] border-t ${
-                        isDark ? "border-violet-400/10" : "border-violet-200/60"
-                      }`}
-                    >
-                      <div className="w-full flex flex-col items-center justify-center">
-                        <div
-                          className={`rounded-2xl border p-5 shadow-xl flex flex-col items-center ${
-                            isDark
-                              ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800"
-                              : "border-black/10 bg-white"
-                          }`}
-                          style={{ width: "100%", maxWidth: 260 }}
-                        >
-                          <HexColorPicker
-                            color={customColor}
-                            onChange={setCustomColor}
-                            style={{
-                              width: "100%",
-                              maxWidth: 220,
-                              aspectRatio: "1/1",
-                              borderRadius: "1rem",
-                              boxShadow: "0 2px 16px 0 #0006",
-                            }}
-                          />
-                          <div className="mt-4 flex items-center gap-2">
-                            <span
-                              className="inline-block w-7 h-7 rounded-lg border border-white/20 shadow"
-                              style={{ background: customColor }}
-                            />
-                            <input
-                              type="text"
-                              value={customColor}
-                              onChange={(e) => setCustomColor(e.target.value)}
-                              className={`border rounded px-2 py-1 text-xs font-mono w-24 focus:outline-none focus:ring-2 focus:ring-violet-400 transition ${
-                                isDark
-                                  ? "bg-gray-900 border-white/10 text-white"
-                                  : "bg-white border-black/10 text-slate-900"
-                              }`}
-                              maxLength={7}
-                            />
-                          </div>
-                          <div
-                            className={`mt-1 text-xs text-center w-full ${
-                              isDark ? "text-gray-400" : "text-slate-500"
-                            }`}
-                          >
-                            Selected color
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Attach Images */}
-                <div
-                  className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
-                    attachedImages.length > 0
-                      ? isDark
-                        ? "border-sky-400/40 bg-gradient-to-br from-sky-950/30 via-gray-900/90 to-black/90"
-                        : "border-sky-300 bg-gradient-to-br from-sky-50 via-white to-sky-50/60"
-                      : isDark
-                        ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
-                        : "border-black/10 bg-slate-50 hover:border-black/20"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleExtra("images")}
-                    aria-expanded={openExtra === "images"}
-                    aria-controls="extra-images-panel"
-                    className="w-full flex items-center gap-3 sm:gap-4 p-4 sm:p-5 text-left"
-                  >
-                    <div
-                      className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
-                        attachedImages.length > 0
-                          ? "bg-sky-500/15 text-sky-400"
-                          : isDark
-                            ? "bg-white/5 text-gray-400"
-                            : "bg-black/5 text-slate-500"
-                      }`}
-                    >
-                      <FaImage className="text-xl" />
-                    </div>
-
-                    <span className="flex-1 min-w-0">
-                      <span
-                        className={`flex items-center gap-2 font-bold text-sm sm:text-base ${
-                          isDark ? "text-white" : "text-slate-900"
-                        }`}
-                      >
-                        {attachedImages.length > 0
-                          ? `${attachedImages.length} Photo${attachedImages.length > 1 ? "s" : ""} Attached`
-                          : "No Photos Attached"}
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
-                            attachedImages.length > 0
-                              ? "bg-sky-500/15 text-sky-400"
-                              : isDark
-                                ? "bg-white/10 text-gray-400"
-                                : "bg-black/5 text-slate-500"
-                          }`}
-                        >
-                          Optional
-                        </span>
-                      </span>
-                      <span
-                        className={`block text-xs sm:text-sm mt-0.5 ${
-                          isDark ? "text-gray-400" : "text-slate-500"
-                        }`}
-                      >
-                        {attachedImages.length > 0
-                          ? `Tap to manage — ${attachedImages.length}/${MAX_IMAGES} used`
-                          : `Add up to ${MAX_IMAGES} images to your confession`}
-                      </span>
-                    </span>
-
-                    <div className="flex items-center gap-3 shrink-0">
-                      {attachedImages.length > 0 && (
-                        <div className="hidden sm:flex -space-x-2">
-                          {attachedImages.slice(0, 3).map((img) => (
-                            <img
-                              key={img.id}
-                              src={img.previewUrl}
-                              alt=""
-                              className={`w-8 h-8 rounded-full object-cover border-2 ${
-                                isDark ? "border-gray-900" : "border-white"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      <svg
-                        className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
-                          openExtra === "images" ? "rotate-180" : ""
-                        } ${isDark ? "text-gray-400" : "text-slate-500"}`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </div>
-                  </button>
-
-                  <div
-                    id="extra-images-panel"
-                    className={`grid transition-all duration-300 ease-in-out ${
-                      openExtra === "images"
-                        ? "grid-rows-[1fr] opacity-100"
-                        : "grid-rows-[0fr] opacity-0"
-                    }`}
-                  >
-                    <div className="overflow-hidden">
-                      <div
-                        className={`px-4 sm:px-5 pb-5 pt-1 border-t ${
-                          isDark ? "border-sky-400/10" : "border-sky-200/60"
-                        }`}
-                      >
-                        <input
-                          ref={imageInputRef}
-                          id="confessionImage"
-                          type="file"
-                          accept={ALLOWED_IMAGE_TYPES.join(",")}
-                          multiple
-                          onChange={handleImageSelect}
-                          className="hidden"
-                        />
-
-                        <div
-                          onDrop={handleImageDrop}
-                          onDragOver={handleImageDragOver}
-                          onDragLeave={handleImageDragLeave}
-                          className={`rounded-lg border border-dashed p-2 mt-3 transition-colors duration-200 ${
-                            isDraggingImage
-                              ? isDark
-                                ? "border-sky-400/60 bg-sky-400/5"
-                                : "border-sky-400/60 bg-sky-50"
-                              : "border-transparent"
-                          }`}
-                        >
-                          <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                            {attachedImages.map((img) => (
-                              <div
-                                key={img.id}
-                                className="relative aspect-square"
-                              >
-                                <img
-                                  src={img.previewUrl}
-                                  alt="Selected attachment preview"
-                                  className="w-full h-full rounded-lg border border-white/10 object-cover"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeImage(img.id)}
-                                  className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-lg transition"
-                                  aria-label="Remove image"
-                                  title="Remove image"
-                                >
-                                  <FaTimesCircle className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ))}
-
-                            {attachedImages.length < MAX_IMAGES && (
-                              <label
-                                htmlFor="confessionImage"
-                                className={`flex flex-col items-center justify-center gap-1 aspect-square cursor-pointer border border-dashed rounded-lg text-[11px] sm:text-xs text-center px-1 transition ${
-                                  isDark
-                                    ? "border-white/20 text-gray-400 hover:border-sky-400/50 hover:text-sky-300"
-                                    : "border-black/20 text-slate-500 hover:border-sky-400/50 hover:text-sky-600"
-                                }`}
-                              >
-                                <FaImage className="text-base" />
-                                {isDraggingImage
-                                  ? "Drop here"
-                                  : "Add or drop image"}
-                              </label>
-                            )}
-                          </div>
-                        </div>
-
-                        {imageError && (
-                          <p className="mt-2 text-xs text-red-400 font-semibold">
-                            {imageError}
-                          </p>
-                        )}
-
-                        <p
-                          className={`mt-2 text-[11px] leading-relaxed ${
-                            isDark ? "text-gray-500" : "text-slate-500"
-                          }`}
-                        >
-                          Up to {MAX_IMAGES} images, {MAX_IMAGE_MB}MB each.
-                          Images are reviewed by our team before being shared.
-                          Do not upload nudity, gore, or anything illegal —
-                          violators will be permanently banned.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Username / Identity reveal */}
-              <div
-                className={`rounded-2xl border-2 shadow-lg overflow-hidden transition-all duration-300 ${
-                  showIdentity
-                    ? isDark
-                      ? "border-red-400/40 bg-gradient-to-br from-red-950/30 via-gray-900/90 to-black/90"
-                      : "border-red-300 bg-gradient-to-br from-red-50 via-white to-red-50/60"
-                    : isDark
-                      ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
-                      : "border-black/10 bg-slate-50 hover:border-black/20"
-                }`}
-              >
-                <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
-                  <div
-                    className={`flex items-center justify-center w-11 h-11 rounded-xl shrink-0 transition-colors duration-300 ${
-                      showIdentity
-                        ? "bg-red-500/15 text-red-400"
-                        : isDark
-                          ? "bg-white/5 text-gray-400"
-                          : "bg-black/5 text-slate-500"
-                    }`}
-                  >
-                    {showIdentity ? (
-                      <FaUserCircle className="text-xl" />
-                    ) : (
-                      <FaEyeSlash className="text-xl" />
-                    )}
-                  </div>
-
-                  <label
-                    htmlFor="showIdentity"
-                    className="flex-1 min-w-0 cursor-pointer"
-                  >
-                    <span
-                      className={`flex items-center gap-2 font-bold text-sm sm:text-base ${
-                        isDark ? "text-white" : "text-slate-900"
-                      }`}
-                    >
-                      {showIdentity
-                        ? "Posting With Instagram Username"
-                        : "Posting Anonymously"}
-                      <span
-                        className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
-                          showIdentity
-                            ? "bg-red-500/15 text-red-400"
-                            : isDark
-                              ? "bg-white/10 text-gray-400"
-                              : "bg-black/5 text-slate-500"
-                        }`}
-                      >
-                        Optional
-                      </span>
-                    </span>
-                    <span
-                      className={`block text-xs sm:text-sm mt-0.5 ${
-                        isDark ? "text-gray-400" : "text-slate-500"
-                      }`}
-                    >
-                      {showIdentity
-                        ? "Everyone will see this confession was sent by you."
-                        : "Nobody will know this confession was from you."}
-                    </span>
-                  </label>
-
-                  <ToggleSwitch
-                    id="showIdentity"
-                    checked={showIdentity}
-                    onChange={setShowIdentity}
-                    dark={isDark}
-                  />
-                </div>
-
-                {showIdentity && (
-                  <div
-                    className={`px-4 sm:px-5 pb-5 pt-1 space-y-4 animate-[fadeIn_0.3s_ease] border-t ${
-                      isDark ? "border-red-400/10" : "border-red-200/60"
-                    }`}
-                  >
-                    <div
-                      className={`flex items-start gap-2 text-xs rounded-lg p-3 ${
-                        isDark
-                          ? "bg-red-500/10 text-red-200"
-                          : "bg-red-100/70 text-red-700"
-                      }`}
-                    >
-                      <FaExclamationTriangle className="shrink-0 mt-0.5" />
-                      <span>
-                        Only turn this on if you're okay with your username
-                        being public. It can't be undone once your confession is
-                        sent.
-                      </span>
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="username"
-                        className={`block text-xs font-semibold mb-1.5 ${
-                          isDark ? "text-gray-300" : "text-slate-600"
-                        }`}
-                      >
-                        Your username
-                      </label>
-                      <div className="relative">
-                        <span
-                          className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-mono select-none ${
-                            isDark ? "text-gray-500" : "text-slate-400"
-                          }`}
-                        >
-                          @
-                        </span>
-                        <input
-                          ref={usernameInputRef}
-                          id="username"
-                          type="text"
-                          inputMode="text"
-                          placeholder="yourusername"
-                          value={username}
-                          onChange={handleUsernameChange}
-                          onBlur={() => setUsernameTouched(true)}
-                          className={`border-2 rounded-xl pl-8 pr-10 py-3 text-sm font-mono w-full focus:outline-none focus:ring-4 transition-all duration-200 ${
-                            usernameError
-                              ? "border-red-400 focus:ring-red-400/20"
-                              : username && usernameIsValid
-                                ? "border-emerald-400/60 focus:ring-emerald-400/20"
-                                : isDark
-                                  ? "border-white/10 focus:ring-red-400/20 focus:border-red-400/50"
-                                  : "border-black/10 focus:ring-red-400/10 focus:border-red-300"
-                          } ${
-                            isDark
-                              ? "bg-black/40 text-white"
-                              : "bg-white text-slate-900"
-                          }`}
-                          maxLength={MAX_USERNAME_LENGTH}
-                          aria-invalid={!!usernameError}
-                          aria-describedby="username-hint"
-                        />
-                        {username && usernameIsValid && (
-                          <FaCheckCircle className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-400" />
-                        )}
-                      </div>
-                      <div
-                        id="username-hint"
-                        className="mt-1.5 flex items-center justify-between text-[11px]"
-                      >
-                        <span
-                          className={
-                            usernameError
-                              ? "text-red-400 font-medium"
-                              : isDark
-                                ? "text-gray-500"
-                                : "text-slate-500"
-                          }
-                        >
-                          {usernameError ||
-                            "Letters, numbers, periods and underscores."}
-                        </span>
-                        <span
-                          className={`font-mono ${isDark ? "text-gray-500" : "text-slate-500"}`}
-                        >
-                          {username.length}/{MAX_USERNAME_LENGTH}
-                        </span>
-                      </div>
-                    </div>
-
-                    <label
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors duration-200 ${
-                        identityConfirmed
-                          ? isDark
-                            ? "border-emerald-400/40 bg-emerald-500/10"
-                            : "border-emerald-300 bg-emerald-50"
-                          : isDark
-                            ? "border-white/10 bg-black/20"
-                            : "border-black/10 bg-white"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={identityConfirmed}
-                        onChange={(e) => setIdentityConfirmed(e.target.checked)}
-                        className={`scale-110 mt-0.5 shrink-0 transition-all duration-200 ${
-                          isDark ? "accent-emerald-400" : "accent-emerald-600"
-                        }`}
-                      />
-                      <span
-                        className={`text-xs sm:text-sm ${isDark ? "text-gray-300" : "text-slate-600"}`}
-                      >
-                        I confirm this username is accurate and I want it shown
-                        publicly with my confession.
-                      </span>
-                    </label>
-                  </div>
-                )}
-              </div>
-
-              {/* Agreement checkbox */}
-              <div
-                className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-5 rounded-xl sm:rounded-2xl border shadow group transition-all duration-300 ${
-                  isDark
-                    ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 hover:border-white/30 hover:shadow-lg"
-                    : "bg-slate-50 border-black/10 hover:border-black/20 hover:shadow-lg"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  id="terms"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  required
-                  className={`scale-110 sm:scale-125 mt-1 transition-all duration-200 ${
-                    isDark ? "accent-white" : "accent-slate-700"
-                  }`}
+                <CustomColorSection
+                  isDark={isDark}
+                  enabled={customColorEnabled}
+                  color={customColor}
+                  onToggle={handleColorToggle}
+                  onChange={handleColorChange}
                 />
-                <label
-                  htmlFor="terms"
-                  className={`text-xs sm:text-sm cursor-pointer ${
-                    isDark ? "text-gray-300" : "text-slate-600"
-                  }`}
-                >
-                  <p
-                    className={`font-semibold mb-1 tracking-wide ${
-                      isDark ? "text-white" : "text-slate-900"
-                    }`}
-                  >
-                    Important Disclaimer
-                  </p>
-                  <p>
-                    By checking this box, you accept our{" "}
-                    <a
-                      href="/terms"
-                      className={
-                        isDark
-                          ? "text-gray-400 underline hover:text-gray-300 transition"
-                          : "text-slate-500 underline hover:text-slate-700 transition"
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Terms and Conditions
-                    </a>
-                    .
-                  </p>
-                </label>
+
+                <ImageSection
+                  isDark={isDark}
+                  images={attachedImages}
+                  openExtra={openExtra}
+                  onToggleExtra={toggleExtra}
+                  onImageSelect={handleImageSelect}
+                  onRemoveImage={removeImage}
+                  onImageDrop={handleImageDrop}
+                  onImageDragOver={handleImageDragOver}
+                  onImageDragLeave={handleImageDragLeave}
+                  isDragging={isDraggingImage}
+                  imageError={imageError}
+                  imageInputRef={imageInputRef}
+                />
+
+                <IdentitySection
+                  isDark={isDark}
+                  showIdentity={showIdentity}
+                  onToggle={handleIdentityToggle}
+                  username={username}
+                  usernameError={usernameError}
+                  usernameIsValid={usernameIsValid}
+                  onUsernameChange={handleUsernameChange}
+                  onUsernameBlur={handleUsernameBlur}
+                  identityConfirmed={identityConfirmed}
+                  onConfirmChange={handleConfirmChange}
+                  usernameInputRef={usernameInputRef}
+                />
               </div>
 
-              {/* Helpful checklist — only appears once someone has tried to
-                  send and something is still missing, so it never nags a
-                  first-time visitor who hasn't reached the button yet. */}
+              <TermsSection isDark={isDark} agreed={agreed} onChange={handleAgreedChange} />
+
               {submitAttempted && !canSubmit && !loading && (
                 <div
                   className={`rounded-xl border p-3 sm:p-4 text-xs sm:text-sm animate-[fadeIn_0.25s_ease] ${
@@ -1640,231 +1655,46 @@ export default function ConfessionPage() {
                 >
                   <p className="font-semibold mb-1.5">A few things left:</p>
                   <ul className="space-y-1">
-                    <ChecklistItem done={!!message.trim()}>
-                      Write your confession
-                    </ChecklistItem>
-                    <ChecklistItem done={agreed}>
-                      Accept the Terms and Conditions
-                    </ChecklistItem>
+                    <ChecklistItem done={!!message.trim()}>Write your confession</ChecklistItem>
+                    <ChecklistItem done={agreed}>Accept the Terms and Conditions</ChecklistItem>
                     {showIdentity && (
                       <>
-                        <ChecklistItem done={usernameIsValid && !!username}>
-                          Enter a valid username
-                        </ChecklistItem>
-                        <ChecklistItem done={identityConfirmed}>
-                          Confirm your username is accurate
-                        </ChecklistItem>
+                        <ChecklistItem done={usernameIsValid && !!username}>Enter a valid username</ChecklistItem>
+                        <ChecklistItem done={identityConfirmed}>Confirm your username is accurate</ChecklistItem>
                       </>
                     )}
                   </ul>
                 </div>
               )}
 
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                aria-disabled={!canSubmit}
-                className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border hover:scale-105 hover:shadow-2xl active:scale-95 ${
-                  isDark
-                    ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:border-white/30 hover:from-gray-800 hover:via-gray-900 hover:to-black"
-                    : "border-black/10 bg-gradient-to-br from-slate-800 via-slate-900 to-black text-white hover:border-black/30 hover:from-slate-700 hover:via-slate-800 hover:to-slate-900"
-                } ${
-                  !canSubmit
-                    ? "opacity-60 cursor-not-allowed hover:scale-100"
-                    : ""
-                }`}
-              >
-                {loading ? (
-                  <>
-                    <svg
-                      className="animate-spin h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    {imageUploading ? "Uploading image..." : "Sending..."}
-                  </>
-                ) : (
-                  <>
-                    <FaPaperPlane className="text-white drop-shadow" />
-                    <span className="drop-shadow">
-                      Send {showIdentity ? "" : "Anonymously"}
-                    </span>
-                  </>
-                )}
-              </button>
+              <SubmitButton
+                isDark={isDark}
+                loading={loading}
+                imageUploading={imageUploading}
+                canSubmit={canSubmit}
+                showIdentity={showIdentity}
+              />
             </form>
 
-            {/* Feedback */}
-            <div className="px-4 sm:px-8 md:px-12 pb-6 sm:pb-8 space-y-2 sm:space-y-3">
-              {formError && (
-                <div
-                  className={`p-3 rounded-lg border font-semibold text-sm text-center mb-2 ${
-                    isDark
-                      ? "bg-red-900/80 border-red-400/30 text-red-200"
-                      : "bg-red-100 border-red-300 text-red-700"
-                  }`}
-                >
-                  {formError}
-                </div>
-              )}
-              {success === true && (
-                <Toast
-                  tone="success"
-                  visible={showFeedback}
-                  dark={isDark}
-                  icon={<FaCheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
-                >
-                  Confession sent
-                  {showIdentity && identityConfirmed ? "" : " anonymously"}!
-                </Toast>
-              )}
-              {success === false && (
-                <Toast
-                  tone="error"
-                  visible={showFeedback}
-                  dark={isDark}
-                  icon={
-                    <FaExclamationTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
-                  }
-                >
-                  Failed to send message. Please try again.
-                </Toast>
-              )}
-              {cooldownError && (
-                <Toast
-                  tone="warning"
-                  visible={showFeedback}
-                  dark={isDark}
-                  icon={<FaClock className="w-4 h-4 sm:w-5 sm:h-5" />}
-                >
-                  Please wait 1 minute before sending another confession.
-                </Toast>
-              )}
-              {profanityError && (
-                <Toast
-                  tone="error"
-                  visible={showFeedback}
-                  dark={isDark}
-                  icon={
-                    <FaExclamationTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
-                  }
-                >
-                  Your confession contains inappropriate language. Please remove
-                  it.
-                </Toast>
-              )}
-            </div>
+            <FeedbackToasts
+              isDark={isDark}
+              formError={formError}
+              success={success}
+              showFeedback={showFeedback}
+              cooldownError={cooldownError}
+              profanityError={profanityError}
+              showIdentity={showIdentity}
+              identityConfirmed={identityConfirmed}
+            />
 
-            {/* Security footer */}
-            <div
-              className={`p-3 sm:p-4 border-t flex items-center justify-center gap-2 text-xs sm:text-sm shadow-inner ${
-                isDark
-                  ? "bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-white/10 text-gray-300"
-                  : "bg-slate-50 border-black/10 text-slate-600"
-              }`}
-            >
-              <FaLock className={isDark ? "text-white" : "text-slate-700"} />
-              <span>
-                {showIdentity
-                  ? "Your confession is transmitted securely."
-                  : "Your confession is end-to-end anonymous and secure"}
-              </span>
-            </div>
+            <SecurityFooter isDark={isDark} showIdentity={showIdentity} />
           </div>
         </div>
 
-        {/* Instagram links */}
-        <div className="mt-8 mb-4 flex flex-col md:flex-row justify-center gap-5 sm:gap-8 z-10 w-full px-2">
-          <div className="flex flex-col md:flex-row justify-center items-center gap-5 sm:gap-8 w-full">
-            <a
-              href="https://www.instagram.com/americanlycetuff_confession/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl border shadow-lg hover:scale-105 hover:shadow-2xl transition-all duration-300 group w-full max-w-xs min-w-[260px] justify-center ${
-                isDark
-                  ? "bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-white/10 hover:border-white/30"
-                  : "bg-white border-black/10 hover:border-black/30"
-              }`}
-              style={{ minWidth: 260 }}
-            >
-              <div
-                className={`p-2 sm:p-3 rounded-lg sm:rounded-xl shadow border transition ${
-                  isDark
-                    ? "bg-black border-white/20 group-hover:border-white/40"
-                    : "bg-slate-900 border-black/20 group-hover:border-black/40"
-                }`}
-              >
-                <FaInstagram className="text-white text-xl sm:text-2xl group-hover:scale-110 transition" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <p
-                  className={`text-xs transition whitespace-nowrap ${
-                    isDark
-                      ? "text-gray-500 group-hover:text-white"
-                      : "text-slate-400 group-hover:text-slate-900"
-                  }`}
-                >
-                  Confession Page
-                </p>
-                <p
-                  className={`font-medium transition whitespace-nowrap ${
-                    isDark
-                      ? "text-white group-hover:text-gray-200"
-                      : "text-slate-900 group-hover:text-slate-700"
-                  }`}
-                >
-                  americanlycetuff_confession
-                </p>
-              </div>
-            </a>
-          </div>
-        </div>
+        <InstagramLinks isDark={isDark} />
       </div>
 
-      {/* Footer */}
-      <footer
-        className={`relative z-10 w-full text-center py-4 sm:py-6 text-xs sm:text-sm border-t mt-auto px-2 ${
-          isDark
-            ? "text-gray-500 border-white/5"
-            : "text-slate-500 border-black/10"
-        }`}
-      >
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-2">
-          <p>
-            © {new Date().getFullYear()} American Lycetuff Confessions.
-            Everything Is Anonymous.
-          </p>
-          <span className="hidden sm:inline opacity-50">•</span>
-          <a
-            href="/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`inline-block px-2 py-1 font-semibold text-xs underline transition ${
-              isDark
-                ? "text-gray-400 hover:text-gray-200"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            Terms and Conditions
-          </a>
-        </div>
-      </footer>
+      <SiteFooter isDark={isDark} />
     </div>
   );
 }
