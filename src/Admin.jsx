@@ -12,8 +12,8 @@ import {
   getDoc,
   deleteField,
 } from "firebase/firestore";
-import { db } from "./firebase";
 import { doc as firestoreDoc } from "firebase/firestore";
+import { db } from "./firebase";
 import { Toaster, toast } from "react-hot-toast";
 import {
   Eye,
@@ -37,6 +37,8 @@ import {
   Users,
   Image as ImageIcon,
   ImageOff,
+  Flag,
+  AtSign,
 } from "lucide-react";
 
 function TruncatedConfession({ text, maxLength = 200 }) {
@@ -527,23 +529,48 @@ export default function AdminPage() {
       collection(db, "confessionPresence"),
       (snapshot) => {
         const now = Date.now();
-        const activeUsers = snapshot.docs.reduce((count, docSnap) => {
+        let activeCount = 0;
+        const staleIds = [];
+
+        snapshot.docs.forEach((docSnap) => {
           const data = docSnap.data();
-          if (data.page !== "confession") return count;
+          if (data.page !== "confession") return;
           const lastSeen = data.lastSeen;
           const lastSeenTime = lastSeen?.toDate
             ? lastSeen.toDate().getTime()
             : new Date(lastSeen || 0).getTime();
-          const isFresh =
-            Number.isFinite(lastSeenTime) && now - lastSeenTime < 15000;
-          return (
-            count +
-            (isFresh && (data.status === "active" || data.status === "typing")
-              ? 1
-              : 0)
-          );
-        }, 0);
-        setActiveConfessionUsers(activeUsers);
+
+          if (!Number.isFinite(lastSeenTime)) return;
+
+          const age = now - lastSeenTime;
+
+          // Sessions older than 60s are considered dead — clean them up
+          if (age > 60000) {
+            staleIds.push(docSnap.id);
+            return;
+          }
+
+          // 25s threshold = ~3 missed heartbeats at 8s interval,
+          // giving plenty of margin for network lag or delayed tabs.
+          if (
+            age < 25000 &&
+            (data.status === "active" || data.status === "typing")
+          ) {
+            activeCount++;
+          }
+        });
+
+        setActiveConfessionUsers(activeCount);
+
+        // Async-clean stale sessions so they don't accumulate on
+        // browser crashes or mobile kills.
+        if (staleIds.length > 0) {
+          staleIds.forEach((id) => {
+            try {
+              void deleteDoc(firestoreDoc(db, "confessionPresence", id));
+            } catch {}
+          });
+        }
       },
     );
     return () => unsubscribe();
@@ -1028,7 +1055,9 @@ export default function AdminPage() {
                   {userFilterIp ? "User's Confessions" : "Confessions"}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold text-emerald-300 shadow-sm">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] sm:text-[11px] font-semibold text-emerald-300 shadow-sm ${
+                    activeConfessionUsers > 0 ? "animate-pulse" : ""
+                  }`}>
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {activeConfessionUsers} active
                   </span>
@@ -1377,7 +1406,9 @@ export default function AdminPage() {
                       ? "bg-gray-800 border-white text-white"
                       : confession.status === "shared"
                         ? "bg-green-900 border-green-400 text-green-200"
-                        : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
+                        : confession.reported
+                          ? "bg-red-950/40 border-red-500/30 text-red-100 hover:bg-red-950/60"
+                          : "bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300"
                 }
               `}
                           style={
@@ -1388,12 +1419,14 @@ export default function AdminPage() {
                               : undefined
                           }
                         >
-                          {/* Reported dot */}
+                          {/* Reported badge — prominent */}
                           {confession.reported && (
-                            <span
-                              className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-black/40"
-                              title="Reported"
-                            ></span>
+                            <span className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-red-500/20 border border-red-500/40 rounded-full px-1.5 py-0.5" title="Reported">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                              <span className={`text-[9px] font-bold tracking-wide ${isSelected ? "text-red-700" : "text-red-300"}`}>
+                                {confession.reports || 1}
+                              </span>
+                            </span>
                           )}
                           <div className="mt-0.5 shrink-0 flex flex-col items-center gap-1.5">
                             {confession.status === "not-opened" ? (
@@ -1404,7 +1437,7 @@ export default function AdminPage() {
                               <FileText className="w-4 h-4" />
                             )}
                           </div>
-                          <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className={`flex-1 min-w-0 overflow-hidden ${confession.reported ? "pr-8" : ""}`}>
                             <div className="font-medium whitespace-pre-wrap break-words break-all max-w-full overflow-hidden line-clamp-2">
                               {confession.message || "Confession"}
                             </div>
@@ -1544,7 +1577,7 @@ export default function AdminPage() {
                   </span>
                 </div>
 
-                {/* Report Info Tab/Button */}
+                {/* Report Details Panel */}
                 {selectedConfession.reported && (
                   <div className="w-full max-w-md mx-auto">
                     <details
@@ -1552,13 +1585,14 @@ export default function AdminPage() {
                       open={false}
                     >
                       <summary className="flex items-center gap-2 px-4 py-3.5 cursor-pointer select-none outline-none hover:bg-white/5 transition">
-                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/20">
-                          <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-red-500/20">
+                          <Flag size={13} className="text-red-400" />
                         </span>
                         <span className="font-bold text-red-200 text-sm tracking-wide">
                           Report Details
                         </span>
-                        <span className="ml-auto text-xs font-medium text-red-300 bg-red-500/10 px-2 py-0.5 rounded-full">
+                        <span className="ml-auto text-xs font-medium text-red-300 bg-red-500/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                           {selectedConfession.reports || 1} report
                           {selectedConfession.reports > 1 ? "s" : ""}
                         </span>
@@ -1566,51 +1600,113 @@ export default function AdminPage() {
                           &#9654;
                         </span>
                       </summary>
-                      <div className="px-4 pb-4 pt-1 text-sm text-red-100 border-t border-red-500/20">
-                        <span className="font-semibold">Reasons:</span>
-                        <ul className="list-disc ml-5 mt-1 space-y-1">
-                          {(selectedConfession.reportReasons || []).map(
-                            (reason, idx) => (
-                              <li key={idx} className="break-words">
-                                {reason}
-                              </li>
-                            ),
-                          )}
-                        </ul>
-                        <button
-                          onClick={async () => {
-                            await updateDoc(
-                              doc(db, "messages", selectedConfession.id),
-                              {
+                      <div className="px-4 pb-4 pt-2 text-sm text-red-100 border-t border-red-500/20 space-y-3">
+                        {/* Report details from reportDetails array (new format) */}
+                        {selectedConfession.reportDetails &&
+                        selectedConfession.reportDetails.length > 0 ? (
+                          <div className="space-y-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wide text-red-300/80 block">
+                              Reports
+                            </span>
+                            {selectedConfession.reportDetails.map((detail, idx) => (
+                              <div
+                                key={idx}
+                                className="rounded-lg border border-red-500/20 bg-red-950/40 p-3 space-y-1"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="text-xs font-semibold text-red-200 flex-1 break-words">
+                                    {detail.reason}
+                                  </span>
+                                  <span className="text-[10px] text-red-400/60 font-mono shrink-0 mt-0.5">
+                                    #{idx + 1}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 text-[11px] text-red-300/70">
+                                  <AtSign size={10} />
+                                  <a
+                                    href={`https://instagram.com/${detail.instagram}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline hover:text-red-200 transition truncate"
+                                  >
+                                    {detail.instagram || "unknown"}
+                                  </a>
+                                </div>
+                                {detail.reportedAt && (
+                                  <div className="text-[10px] text-red-400/40 font-mono">
+                                    {new Date(detail.reportedAt).toLocaleString()}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {/* Legacy reportReasons fallback */}
+                        {selectedConfession.reportReasons &&
+                        selectedConfession.reportReasons.length > 0 ? (
+                          <div>
+                            <span className="text-[11px] font-bold uppercase tracking-wide text-red-300/80 block mb-1.5">
+                              {selectedConfession.reportDetails?.length
+                                ? "Legacy reasons"
+                                : "Reasons"}
+                            </span>
+                            <ul className="space-y-1">
+                              {selectedConfession.reportReasons.map(
+                                (reason, idx) => (
+                                  <li
+                                    key={idx}
+                                    className="flex items-start gap-2 text-xs text-red-200/80"
+                                  >
+                                    <span className="text-red-400/60 mt-0.5">&#8226;</span>
+                                    <span className="break-words">{reason}</span>
+                                  </li>
+                                ),
+                              )}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        <div className="pt-2 border-t border-red-500/10">
+                          <button
+                            onClick={async () => {
+                              await updateDoc(
+                                doc(db, "messages", selectedConfession.id),
+                                {
+                                  reported: false,
+                                  reports: 0,
+                                  reportReasons: [],
+                                  reportDetails: [],
+                                },
+                              );
+                              setConfessions((prev) =>
+                                prev.map((c) =>
+                                  c.id === selectedConfession.id
+                                    ? {
+                                        ...c,
+                                        reported: false,
+                                        reports: 0,
+                                        reportReasons: [],
+                                        reportDetails: [],
+                                      }
+                                    : c,
+                                ),
+                              );
+                              setSelectedConfession({
+                                ...selectedConfession,
                                 reported: false,
                                 reports: 0,
                                 reportReasons: [],
-                              },
-                            );
-                            setConfessions((prev) =>
-                              prev.map((c) =>
-                                c.id === selectedConfession.id
-                                  ? {
-                                      ...c,
-                                      reported: false,
-                                      reports: 0,
-                                      reportReasons: [],
-                                    }
-                                  : c,
-                              ),
-                            );
-                            setSelectedConfession({
-                              ...selectedConfession,
-                              reported: false,
-                              reports: 0,
-                              reportReasons: [],
-                            });
-                            toast.success("Report info cleared");
-                          }}
-                          className="mt-4 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md shadow-red-950/50"
-                        >
-                          Clear Report Info
-                        </button>
+                                reportDetails: [],
+                              });
+                              toast.success("Report info cleared");
+                            }}
+                            className="w-full bg-gradient-to-br from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-white px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md shadow-red-950/50 flex items-center justify-center gap-2"
+                          >
+                            <Check size={14} />
+                            Mark as Reviewed
+                          </button>
+                        </div>
                       </div>
                     </details>
                   </div>

@@ -1073,9 +1073,11 @@ export default function ConfessionPage() {
     sessionStorage.setItem("confessionPresenceSessionId", sessionId);
     presenceSessionRef.current = sessionId;
 
+    // Heartbeat every 8s so Admin's 25s window safely catches us even if
+    // one or two heartbeats are delayed or dropped.
     const heartbeat = window.setInterval(() => {
       void updatePresence(presenceStatusRef.current);
-    }, 10000);
+    }, 8000);
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -1087,23 +1089,26 @@ export default function ConfessionPage() {
       }
     };
 
-    const handleBeforeUnload = () => {
-      if (presenceSessionRef.current) {
-        void deleteDoc(
-          firestoreDoc(db, "confessionPresence", presenceSessionRef.current),
-        );
-      }
+    // Best-effort cleanup: deleteDoc works on fast unloads; on slow or
+    // killed tabs the Admin's periodic stale-session sweep handles it.
+    const handleUnload = () => {
+      const id = presenceSessionRef.current;
+      if (!id) return;
+      try { void deleteDoc(firestoreDoc(db, "confessionPresence", id)); } catch {}
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("pagehide", handleUnload);
+
     void updatePresence("active");
 
     return () => {
       window.clearInterval(heartbeat);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      handleBeforeUnload();
+      window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("pagehide", handleUnload);
+      handleUnload();
     };
   }, [updatePresence]);
 

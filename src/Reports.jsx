@@ -7,6 +7,7 @@ import {
   updateDoc,
   doc,
   increment,
+  arrayUnion,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { toast, Toaster } from "react-hot-toast";
@@ -19,8 +20,10 @@ import {
   ArrowUpDown,
   ChevronDown,
   Info,
-  Hash,
   FolderX,
+  AlertTriangle,
+  Instagram,
+  Send,
 } from "lucide-react";
 import sendToDiscord from "./sendToDiscord";
 
@@ -65,7 +68,6 @@ function timeAgo(timestamp) {
   });
 }
 
-// Deterministic short case number from a Firestore doc id, e.g. "F-2A9C".
 function caseNumber(id) {
   if (!id) return "F-0000";
   const hash = Array.from(id).reduce(
@@ -81,6 +83,8 @@ export default function ReportsPage() {
   const [reportingId, setReportingId] = useState(null);
   const [reasonOption, setReasonOption] = useState(REPORT_REASONS[0]);
   const [customReason, setCustomReason] = useState("");
+  const [reporterInstagram, setReporterInstagram] = useState("");
+  const [instagramError, setInstagramError] = useState("");
   const [reportCounts, setReportCounts] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("newest");
@@ -92,6 +96,8 @@ export default function ReportsPage() {
   useEffect(() => {
     const stored = localStorage.getItem("confessionReports") || "{}";
     setReportCounts(JSON.parse(stored));
+    const savedIg = localStorage.getItem("reporterInstagram");
+    if (savedIg) setReporterInstagram(savedIg);
   }, []);
 
   useEffect(() => {
@@ -106,7 +112,6 @@ export default function ReportsPage() {
         ...docSnap.data(),
       }));
 
-      // Reset localStorage report limit if confession has 0 reports
       let changed = false;
       const stored = JSON.parse(
         localStorage.getItem("confessionReports") || "{}",
@@ -135,12 +140,27 @@ export default function ReportsPage() {
     setReportingId(id);
     setReasonOption(REPORT_REASONS[0]);
     setCustomReason("");
+    setInstagramError("");
+    const savedIg = localStorage.getItem("reporterInstagram");
+    if (savedIg) setReporterInstagram(savedIg);
   };
 
   const closeReportForm = () => {
     setReportingId(null);
     setReasonOption(REPORT_REASONS[0]);
     setCustomReason("");
+    setInstagramError("");
+  };
+
+  const handleInstagramChange = (e) => {
+    const raw = e.target.value;
+    const cleaned = raw
+      .replace(/^@+/, "")
+      .replace(/\s/g, "")
+      .replace(/[^a-zA-Z0-9._]/g, "")
+      .slice(0, 30);
+    setReporterInstagram(cleaned);
+    if (instagramError) setInstagramError("");
   };
 
   const handleReport = async (confessionId) => {
@@ -148,6 +168,17 @@ export default function ReportsPage() {
       toast.error("Please provide a reason.");
       return;
     }
+
+    const ig = reporterInstagram.trim();
+    if (!ig) {
+      setInstagramError("Instagram username is required.");
+      return;
+    }
+    if (ig.length < 2) {
+      setInstagramError("Username must be at least 2 characters.");
+      return;
+    }
+
     if (cooldowns[confessionId] || submitting[confessionId]) {
       toast.error("Please wait before reporting again.");
       return;
@@ -168,21 +199,23 @@ export default function ReportsPage() {
       await updateDoc(confessionRef, {
         reported: true,
         reports: increment(1),
-        reportReasons: [
-          ...(confessions.find((c) => c.id === confessionId)?.reportReasons ||
-            []),
-          activeReasonText,
-        ],
+        reportReasons: arrayUnion(activeReasonText),
+        reportDetails: arrayUnion({
+          reason: activeReasonText,
+          instagram: ig,
+          reportedAt: new Date().toISOString(),
+        }),
       });
 
       const confession = confessions.find((c) => c.id === confessionId);
       await sendToDiscord(
-        `Confession: "${confession?.message || ""}"\nReason: "${activeReasonText}"`,
+        `Confession: "${confession?.message || ""}"\nReason: "${activeReasonText}"\nReported by: @${ig}`,
         "report",
       );
 
       stored[confessionId] = count + 1;
       localStorage.setItem("confessionReports", JSON.stringify(stored));
+      localStorage.setItem("reporterInstagram", ig);
       setReportCounts(stored);
 
       setCooldowns((prev) => ({ ...prev, [confessionId]: true }));
@@ -226,7 +259,7 @@ export default function ReportsPage() {
         }}
       />
 
-      {/* Ambient texture: faint hazard stripes + vignette instead of generic blurry blobs */}
+      {/* Ambient texture */}
       <div
         className="fixed inset-0 pointer-events-none opacity-[0.05]"
         style={{
@@ -250,7 +283,7 @@ export default function ReportsPage() {
                   Report Confessions
                 </h1>
                 <p className="font-mono text-[10px] sm:text-xs text-gray-400">
-                  {confessions.length} active confessions
+                  {confessions.length} active confession
                   {confessions.length === 1 ? "" : "s"}
                   {reportedByMeCount > 0 &&
                     ` · you flagged ${reportedByMeCount}`}
@@ -432,7 +465,7 @@ export default function ReportsPage() {
                     style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }}
                   />
 
-                  {/* Diagonal stamp, revealed on hover/focus */}
+                  {/* Diagonal stamp */}
                   {canReport && !isOpen && (
                     <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-200">
                       <span className="font-mono font-black text-2xl sm:text-3xl tracking-widest text-red-500/25 border-4 border-red-500/25 rounded px-4 py-1 -rotate-12">
@@ -469,82 +502,160 @@ export default function ReportsPage() {
                     </div>
                   )}
 
+                  {/* Report modal overlay */}
                   {isOpen && (
-                    <div
-                      className="relative mt-4 pt-4 border-t border-dashed border-red-400/30 flex flex-col gap-3 animate-[fadeIn_0.2s_ease]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1.5">
-                          Reason
-                        </label>
-                        <select
-                          value={reasonOption}
-                          onChange={(e) => setReasonOption(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-lg py-2 px-3 text-xs sm:text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-400/50 transition"
-                        >
-                          {REPORT_REASONS.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                          <option value="custom">Other (specify)</option>
-                        </select>
-                      </div>
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+                        onClick={closeReportForm}
+                      />
 
-                      {isReasonCustom && (
-                        <div>
-                          <textarea
-                            className="w-full p-2.5 rounded-lg bg-black border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-red-400/50 transition text-sm resize-none"
-                            rows={2}
-                            placeholder="Describe the issue..."
-                            value={customReason}
-                            onChange={(e) => setCustomReason(e.target.value)}
-                            maxLength={MAX_CUSTOM_REASON}
-                            autoFocus
-                          />
-                          <div className="flex justify-end text-[10px] mt-1 font-mono text-gray-600">
-                            <span
-                              className={
-                                customReason.length >= MAX_CUSTOM_REASON
-                                  ? "text-red-400 font-semibold"
-                                  : ""
-                              }
+                      {/* Modal */}
+                      <div
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div
+                          className="relative w-full max-w-md rounded-2xl border border-red-400/30 bg-gradient-to-br from-gray-900 via-black to-gray-800 p-6 shadow-2xl shadow-red-900/30 animate-[fadeIn_0.2s_ease]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Modal header */}
+                          <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/10">
+                            <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-400/30 flex items-center justify-center">
+                              <AlertTriangle size={18} className="text-red-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-sm text-white">
+                                Flag Confession
+                              </h3>
+                              <p className="text-[11px] text-gray-500 font-mono">
+                                {caseNumber(confession.id)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={closeReportForm}
+                              className="w-8 h-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition"
+                              aria-label="Close"
                             >
-                              {MAX_CUSTOM_REASON - customReason.length} left
-                            </span>
+                              <CloseIcon size={14} />
+                            </button>
+                          </div>
+
+                          {/* Reason */}
+                          <div className="mb-4">
+                            <label className="block text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1.5">
+                              Reason for flagging
+                            </label>
+                            <select
+                              value={reasonOption}
+                              onChange={(e) => setReasonOption(e.target.value)}
+                              className="w-full bg-black/60 border border-white/10 rounded-lg py-2.5 px-3 text-xs sm:text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-400/50 transition"
+                            >
+                              {REPORT_REASONS.map((r) => (
+                                <option key={r} value={r}>
+                                  {r}
+                                </option>
+                              ))}
+                              <option value="custom">Other (specify)</option>
+                            </select>
+                          </div>
+
+                          {isReasonCustom && (
+                            <div className="mb-4">
+                              <textarea
+                                className="w-full p-2.5 rounded-lg bg-black/60 border border-white/10 text-white focus:outline-none focus:ring-1 focus:ring-red-400/50 transition text-sm resize-none"
+                                rows={2}
+                                placeholder="Describe the issue..."
+                                value={customReason}
+                                onChange={(e) => setCustomReason(e.target.value)}
+                                maxLength={MAX_CUSTOM_REASON}
+                                autoFocus
+                              />
+                              <div className="flex justify-end text-[10px] mt-1 font-mono text-gray-600">
+                                <span
+                                  className={
+                                    customReason.length >= MAX_CUSTOM_REASON
+                                      ? "text-red-400 font-semibold"
+                                      : ""
+                                  }
+                                >
+                                  {MAX_CUSTOM_REASON - customReason.length} left
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Instagram username — mandatory */}
+                          <div className="mb-5">
+                            <label className="block text-[10px] font-mono uppercase tracking-wide text-gray-500 mb-1.5">
+                              Your Instagram username <span className="text-red-400">*</span>
+                            </label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-mono text-sm">
+                                @
+                              </span>
+                              <input
+                                type="text"
+                                value={reporterInstagram}
+                                onChange={handleInstagramChange}
+                                placeholder="yourusername"
+                                className={`w-full bg-black/60 border rounded-lg py-2.5 pl-8 pr-3 text-sm text-white placeholder-gray-600 font-mono focus:outline-none focus:ring-1 transition ${
+                                  instagramError
+                                    ? "border-red-400/60 focus:ring-red-400/50"
+                                    : "border-white/10 focus:ring-red-400/50"
+                                }`}
+                                maxLength={30}
+                              />
+                            </div>
+                            {instagramError && (
+                              <p className="mt-1.5 text-[11px] text-red-400 font-mono flex items-center gap-1">
+                                <AlertTriangle size={11} />
+                                {instagramError}
+                              </p>
+                            )}
+                            <p className="mt-1 text-[10px] text-gray-600 font-mono">
+                              Required so our team can follow up if needed.
+                            </p>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleReport(confession.id)}
+                              disabled={
+                                isCoolingDown ||
+                                isSubmitting ||
+                                (isReasonCustom && !customReason.trim())
+                              }
+                              className={`flex-1 bg-gradient-to-br from-red-600 to-red-800 text-white px-3 py-2.5 rounded-lg font-mono font-bold text-[11px] uppercase tracking-wide transition shadow-lg hover:from-red-500 hover:to-red-700 flex items-center justify-center gap-2 ${
+                                isCoolingDown ||
+                                isSubmitting ||
+                                (isReasonCustom && !customReason.trim())
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                              }`}
+                            >
+                              {isCoolingDown || isSubmitting ? (
+                                "please wait..."
+                              ) : (
+                                <>
+                                  <Send size={13} />
+                                  submit report
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={closeReportForm}
+                              className="flex-1 bg-white/5 text-gray-300 border border-white/10 px-3 py-2.5 rounded-lg font-mono text-[11px] uppercase tracking-wide transition hover:bg-white/10"
+                            >
+                              cancel
+                            </button>
                           </div>
                         </div>
-                      )}
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleReport(confession.id)}
-                          disabled={
-                            isCoolingDown ||
-                            isSubmitting ||
-                            (isReasonCustom && !customReason.trim())
-                          }
-                          className={`flex-1 bg-red-600 text-white px-3 py-2 rounded-lg font-mono font-bold text-[11px] uppercase tracking-wide transition shadow-sm hover:bg-red-500 ${
-                            isCoolingDown ||
-                            isSubmitting ||
-                            (isReasonCustom && !customReason.trim())
-                              ? "opacity-50 cursor-not-allowed"
-                              : ""
-                          }`}
-                        >
-                          {isCoolingDown || isSubmitting
-                            ? "please wait..."
-                            : "submit"}
-                        </button>
-                        <button
-                          onClick={closeReportForm}
-                          className="flex-1 bg-white/5 text-gray-300 border border-white/10 px-3 py-2 rounded-lg font-mono text-[11px] uppercase tracking-wide transition hover:bg-white/10"
-                        >
-                          cancel
-                        </button>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               );
