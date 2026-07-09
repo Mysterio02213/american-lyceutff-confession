@@ -360,8 +360,8 @@ const TextareaSection = memo(function TextareaSection({
         onBlur={onBlur}
         className={`w-full min-h-[140px] sm:min-h-[200px] p-4 sm:p-6 rounded-xl sm:rounded-2xl border shadow-md focus:outline-none focus:ring-2 transition-all duration-300 resize-none text-base sm:text-lg ${
           isDark
-            ? "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border-white/10 placeholder-gray-400 focus:ring-white/20 focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] group-hover:border-white/20"
-            : "bg-white text-slate-900 border-black/10 placeholder-slate-400 focus:ring-slate-400/40 group-hover:border-black/20"
+            ? "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 text-white border-white/10 placeholder-gray-400 focus:ring-white/20 focus:shadow-[0_0_0_2px_rgba(255,255,255,0.15)] sm:group-hover:border-white/20"
+            : "bg-white text-slate-900 border-black/10 placeholder-slate-400 focus:ring-slate-400/40 sm:group-hover:border-black/20"
         } ${
           submitAttempted && !value.trim()
             ? isDark
@@ -398,8 +398,8 @@ const CustomColorSection = memo(function CustomColorSection({
             ? "border-violet-400/40 bg-gradient-to-br from-violet-950/30 via-gray-900/90 to-black/90"
             : "border-violet-300 bg-gradient-to-br from-violet-50 via-white to-violet-50/60"
           : isDark
-            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
-            : "border-black/10 bg-slate-50 hover:border-black/20"
+            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 sm:hover:border-white/20"
+            : "border-black/10 bg-slate-50 sm:hover:border-black/20"
       }`}
     >
       <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
@@ -516,8 +516,8 @@ const ImageSection = memo(function ImageSection({
             ? "border-sky-400/40 bg-gradient-to-br from-sky-950/30 via-gray-900/90 to-black/90"
             : "border-sky-300 bg-gradient-to-br from-sky-50 via-white to-sky-50/60"
           : isDark
-            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
-            : "border-black/10 bg-slate-50 hover:border-black/20"
+            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 sm:hover:border-white/20"
+            : "border-black/10 bg-slate-50 sm:hover:border-black/20"
       }`}
     >
       <button
@@ -679,8 +679,8 @@ const IdentitySection = memo(function IdentitySection({
             ? "border-red-400/40 bg-gradient-to-br from-red-950/30 via-gray-900/90 to-black/90"
             : "border-red-300 bg-gradient-to-br from-red-50 via-white to-red-50/60"
           : isDark
-            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 hover:border-white/20"
-            : "border-black/10 bg-slate-50 hover:border-black/20"
+            ? "border-white/10 bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 sm:hover:border-white/20"
+            : "border-black/10 bg-slate-50 sm:hover:border-black/20"
       }`}
     >
       <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-5">
@@ -801,8 +801,8 @@ const TermsSection = memo(function TermsSection({ isDark, agreed, onChange }) {
     <div
       className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-5 rounded-xl sm:rounded-2xl border shadow group transition-all duration-300 ${
         isDark
-          ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 hover:border-white/30 hover:shadow-lg"
-          : "bg-slate-50 border-black/10 hover:border-black/20 hover:shadow-lg"
+          ? "bg-gradient-to-br from-black/60 via-gray-900/70 to-gray-800/60 border-white/10 sm:hover:border-white/30 sm:hover:shadow-lg"
+          : "bg-slate-50 border-black/10 sm:hover:border-black/20 sm:hover:shadow-lg"
       }`}
     >
       <input
@@ -839,10 +839,10 @@ const SubmitButton = memo(function SubmitButton({ isDark, loading, imageUploadin
       type="submit"
       disabled={loading}
       aria-disabled={!canSubmit}
-      className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow-lg border hover:scale-105 hover:shadow-2xl active:scale-95 ${
+      className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 shadow sm:shadow-lg border hover:scale-105 hover:shadow-2xl active:scale-95 ${
         isDark
-          ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white hover:border-white/30 hover:from-gray-800 hover:via-gray-900 hover:to-black"
-          : "border-black/10 bg-gradient-to-br from-slate-800 via-slate-900 to-black text-white hover:border-black/30 hover:from-slate-700 hover:via-slate-800 hover:to-slate-900"
+          ? "border-white/10 bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white sm:hover:border-white/30 sm:hover:from-gray-800 sm:hover:via-gray-900 sm:hover:to-black"
+          : "border-black/10 bg-gradient-to-br from-slate-800 via-slate-900 to-black text-white sm:hover:border-black/30 sm:hover:from-slate-700 sm:hover:via-slate-800 sm:hover:to-slate-900"
       } ${!canSubmit ? "opacity-60 cursor-not-allowed hover:scale-100" : ""}`}
     >
       {loading ? (
@@ -934,10 +934,10 @@ const InstagramLinks = memo(function InstagramLinks({ isDark }) {
           href="https://www.instagram.com/americanlycetuff_confession/"
           target="_blank"
           rel="noopener noreferrer"
-          className={`inline-flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl border shadow-lg hover:scale-105 hover:shadow-2xl transition-all duration-300 group w-full max-w-xs min-w-[260px] justify-center ${
+          className={`inline-flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl border shadow sm:shadow-lg hover:scale-105 hover:shadow-2xl transition-all duration-300 group w-full max-w-xs min-w-[260px] justify-center ${
             isDark
-              ? "bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-white/10 hover:border-white/30"
-              : "bg-white border-black/10 hover:border-black/30"
+              ? "bg-gradient-to-br from-black/70 via-gray-900/80 to-gray-800/70 border-white/10 sm:hover:border-white/30"
+              : "bg-white border-black/10 sm:hover:border-black/30"
           }`}
           style={{ minWidth: 260 }}
         >
@@ -991,128 +991,45 @@ const SiteFooter = memo(function SiteFooter({ isDark }) {
   );
 });
 
-export default function ConfessionPage() {
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") return "dark";
-    return localStorage.getItem(THEME_STORAGE_KEY) || "dark";
-  });
-  const isDark = theme === "dark";
-  const messageRef = useRef("");
-
-  useEffect(() => {
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
-  }, [theme]);
-
+const ConfessionForm = memo(function ConfessionForm({
+  isDark,
+  ip,
+  deviceInfo,
+  updatePresence,
+  presenceStatusRef,
+}) {
   const [message, setMessage] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
-  const [ip, setIp] = useState("");
   const [cooldownError, setCooldownError] = useState(false);
   const [profanityError, setProfanityError] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [deviceInfo, setDeviceInfo] = useState("");
   const [customColorEnabled, setCustomColorEnabled] = useState(false);
   const [customColor, setCustomColor] = useState("#ffffff");
-  const [isBanned, setIsBanned] = useState(false);
-  const [banReason, setBanReason] = useState("");
-
   const [showIdentity, setShowIdentity] = useState(false);
   const [username, setUsername] = useState("");
   const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const [usernameTouched, setUsernameTouched] = useState(false);
-
   const [formError, setFormError] = useState("");
-  const usernameInputRef = useRef(null);
-
   const [openExtra, setOpenExtra] = useState(null);
-  const toggleExtra = useCallback((key) => {
-    setOpenExtra((prev) => (prev === key ? null : key));
-  }, []);
-
   const [draftRestored, setDraftRestored] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const presenceSessionRef = useRef(null);
-  const presenceStatusRef = useRef("active");
-
   const [attachedImages, setAttachedImages] = useState([]);
   const [imageError, setImageError] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
+
+  const usernameInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const nextImageId = useRef(0);
-
-  // Keep messageRef in sync
-  messageRef.current = message;
 
   const wordCount = useMemo(() => {
     const trimmed = message.trim();
     return trimmed ? trimmed.split(/\s+/).length : 0;
   }, [message]);
 
-  const updatePresence = useCallback(async (status = "active") => {
-    if (!presenceSessionRef.current) return;
-    try {
-      await setDoc(
-        firestoreDoc(db, "confessionPresence", presenceSessionRef.current),
-        { status, page: "confession", lastSeen: Timestamp.now() },
-        { merge: true },
-      );
-    } catch {
-      // Ignore presence write failures
-    }
-  }, []);
-
-  // Merged presence effect — no `message` dependency, uses ref instead
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    const sessionId =
-      sessionStorage.getItem("confessionPresenceSessionId") ||
-      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    sessionStorage.setItem("confessionPresenceSessionId", sessionId);
-    presenceSessionRef.current = sessionId;
-
-    // Heartbeat every 8s so Admin's 25s window safely catches us even if
-    // one or two heartbeats are delayed or dropped.
-    const heartbeat = window.setInterval(() => {
-      void updatePresence(presenceStatusRef.current);
-    }, 8000);
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        presenceStatusRef.current = "away";
-        void updatePresence("away");
-      } else {
-        presenceStatusRef.current = messageRef.current.trim() ? "typing" : "active";
-        void updatePresence(presenceStatusRef.current);
-      }
-    };
-
-    // Best-effort cleanup: deleteDoc works on fast unloads; on slow or
-    // killed tabs the Admin's periodic stale-session sweep handles it.
-    const handleUnload = () => {
-      const id = presenceSessionRef.current;
-      if (!id) return;
-      try { void deleteDoc(firestoreDoc(db, "confessionPresence", id)); } catch {}
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("beforeunload", handleUnload);
-    window.addEventListener("pagehide", handleUnload);
-
-    void updatePresence("active");
-
-    return () => {
-      window.clearInterval(heartbeat);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("beforeunload", handleUnload);
-      window.removeEventListener("pagehide", handleUnload);
-      handleUnload();
-    };
-  }, [updatePresence]);
-
-  // Typing debounce effect — still depends on message but only sets a timer
+  // Typing debounce
   useEffect(() => {
     const timer = setTimeout(() => {
       const newStatus = message.trim() ? "typing" : "active";
@@ -1180,6 +1097,10 @@ export default function ConfessionPage() {
       : showIdentity && usernameTouched && !usernameIsValid
         ? "Letters, numbers, periods and underscores only."
         : "";
+
+  const toggleExtra = useCallback((key) => {
+    setOpenExtra((prev) => (prev === key ? null : key));
+  }, []);
 
   const handleImageSelect = useCallback((e) => {
     const files = Array.from(e.target.files || []);
@@ -1283,48 +1204,6 @@ export default function ConfessionPage() {
       setUsernameTouched(false);
     }
   }, [showIdentity]);
-
-  useEffect(() => {
-    const fetchIp = async () => {
-      try {
-        const res = await axios.get("https://api.ipify.org?format=json");
-        setIp(res.data.ip);
-      } catch (error) {
-        console.error("Failed to fetch IP:", error);
-      }
-    };
-    fetchIp();
-  }, []);
-
-  useEffect(() => {
-    const parser = new UAParser();
-    const result = parser.getResult();
-    const deviceInfoString = [
-      `OS: ${result.os.name || "Unknown"} ${result.os.version || ""}`,
-      `Browser: ${result.browser.name || "Unknown"} ${result.browser.version || ""}`,
-      `Device Type: ${result.device.type || "Desktop"}`,
-      `Device Model: ${result.device.vendor || ""} ${result.device.model || ""}`,
-    ]
-      .join(" | ")
-      .trim();
-    setDeviceInfo(deviceInfoString);
-  }, []);
-
-  // Live ban check
-  useEffect(() => {
-    if (!ip) return;
-    const banDocRef = firestoreDoc(db, "bannedIps", ip);
-    const unsubscribe = onSnapshot(banDocRef, (docSnap) => {
-      if (docSnap.exists() && docSnap.data().banned) {
-        setIsBanned(true);
-        setBanReason(docSnap.data().reason || "");
-      } else {
-        setIsBanned(false);
-        setBanReason("");
-      }
-    });
-    return () => unsubscribe();
-  }, [ip]);
 
   const resetForm = useCallback(() => {
     setMessage("");
@@ -1494,10 +1373,6 @@ export default function ConfessionPage() {
     void updatePresence("active");
   }, [updatePresence]);
 
-  const handleThemeToggle = useCallback(() => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  }, []);
-
   const handleAgreedChange = useCallback((e) => {
     setAgreed(e.target.checked);
   }, []);
@@ -1527,11 +1402,264 @@ export default function ConfessionPage() {
     setDraftRestored(false);
   }, []);
 
+  const showStartOver = message || attachedImages.length > 0 || customColorEnabled || showIdentity;
+
+  return (
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="p-4 sm:p-8 md:p-12 space-y-6 sm:space-y-8"
+        noValidate
+      >
+        {showStartOver && (
+          <div className="flex justify-end -mb-2">
+            <button
+              type="button"
+              onClick={resetForm}
+              className={`text-xs font-semibold underline underline-offset-2 transition ${
+                isDark ? "text-gray-500 hover:text-gray-300" : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              Start over
+            </button>
+          </div>
+        )}
+
+        {draftRestored && (
+          <DraftBanner isDark={isDark} onDiscard={handleDiscardDraft} />
+        )}
+
+        <TextareaSection
+          value={message}
+          onChange={handleMessageChange}
+          wordCount={wordCount}
+          isDark={isDark}
+          submitAttempted={submitAttempted}
+          onFocus={handleTextareaFocus}
+          onBlur={handleTextareaBlur}
+          draftRestored={draftRestored}
+          setDraftRestored={setDraftRestored}
+        />
+
+        <div className="space-y-3">
+          <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-500" : "text-slate-400"}`}>
+            EXTRAS
+          </p>
+
+          <CustomColorSection
+            isDark={isDark}
+            enabled={customColorEnabled}
+            color={customColor}
+            onToggle={handleColorToggle}
+            onChange={handleColorChange}
+          />
+
+          <ImageSection
+            isDark={isDark}
+            images={attachedImages}
+            openExtra={openExtra}
+            onToggleExtra={toggleExtra}
+            onImageSelect={handleImageSelect}
+            onRemoveImage={removeImage}
+            onImageDrop={handleImageDrop}
+            onImageDragOver={handleImageDragOver}
+            onImageDragLeave={handleImageDragLeave}
+            isDragging={isDraggingImage}
+            imageError={imageError}
+            imageInputRef={imageInputRef}
+          />
+
+          <IdentitySection
+            isDark={isDark}
+            showIdentity={showIdentity}
+            onToggle={handleIdentityToggle}
+            username={username}
+            usernameError={usernameError}
+            usernameIsValid={usernameIsValid}
+            onUsernameChange={handleUsernameChange}
+            onUsernameBlur={handleUsernameBlur}
+            identityConfirmed={identityConfirmed}
+            onConfirmChange={handleConfirmChange}
+            usernameInputRef={usernameInputRef}
+          />
+        </div>
+
+        <TermsSection isDark={isDark} agreed={agreed} onChange={handleAgreedChange} />
+
+        {submitAttempted && !canSubmit && !loading && (
+          <div
+            className={`rounded-xl border p-3 sm:p-4 text-xs sm:text-sm animate-[fadeIn_0.25s_ease] ${
+              isDark
+                ? "bg-amber-500/10 border-amber-400/20 text-amber-200"
+                : "bg-amber-50 border-amber-200 text-amber-800"
+            }`}
+          >
+            <p className="font-semibold mb-1.5">A few things left:</p>
+            <ul className="space-y-1">
+              <ChecklistItem done={!!message.trim()}>Write your confession</ChecklistItem>
+              <ChecklistItem done={agreed}>Accept the Terms and Conditions</ChecklistItem>
+              {showIdentity && (
+                <>
+                  <ChecklistItem done={usernameIsValid && !!username}>Enter a valid username</ChecklistItem>
+                  <ChecklistItem done={identityConfirmed}>Confirm your username is accurate</ChecklistItem>
+                </>
+              )}
+            </ul>
+          </div>
+        )}
+
+        <SubmitButton
+          isDark={isDark}
+          loading={loading}
+          imageUploading={imageUploading}
+          canSubmit={canSubmit}
+          showIdentity={showIdentity}
+        />
+      </form>
+
+      <FeedbackToasts
+        isDark={isDark}
+        formError={formError}
+        success={success}
+        showFeedback={showFeedback}
+        cooldownError={cooldownError}
+        profanityError={profanityError}
+        showIdentity={showIdentity}
+        identityConfirmed={identityConfirmed}
+      />
+
+      <SecurityFooter isDark={isDark} showIdentity={showIdentity} />
+    </>
+  );
+});
+
+export default function ConfessionPage() {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === "undefined") return "dark";
+    return localStorage.getItem(THEME_STORAGE_KEY) || "dark";
+  });
+  const isDark = theme === "dark";
+
+  useEffect(() => {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
+  const [ip, setIp] = useState("");
+  const [deviceInfo, setDeviceInfo] = useState("");
+  const [isBanned, setIsBanned] = useState(false);
+  const [banReason, setBanReason] = useState("");
+  const presenceSessionRef = useRef(null);
+  const presenceStatusRef = useRef("active");
+
+  const updatePresence = useCallback(async (status = "active") => {
+    if (!presenceSessionRef.current) return;
+    try {
+      await setDoc(
+        firestoreDoc(db, "confessionPresence", presenceSessionRef.current),
+        { status, page: "confession", lastSeen: Timestamp.now() },
+        { merge: true },
+      );
+    } catch {
+      // Ignore presence write failures
+    }
+  }, []);
+
+  // Merged presence effect
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const sessionId =
+      sessionStorage.getItem("confessionPresenceSessionId") ||
+      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    sessionStorage.setItem("confessionPresenceSessionId", sessionId);
+    presenceSessionRef.current = sessionId;
+
+    const heartbeat = window.setInterval(() => {
+      void updatePresence(presenceStatusRef.current);
+    }, 8000);
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        presenceStatusRef.current = "away";
+        void updatePresence("away");
+      } else {
+        presenceStatusRef.current = "active";
+        void updatePresence("active");
+      }
+    };
+
+    const handleUnload = () => {
+      const id = presenceSessionRef.current;
+      if (!id) return;
+      try { void deleteDoc(firestoreDoc(db, "confessionPresence", id)); } catch {}
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("pagehide", handleUnload);
+
+    void updatePresence("active");
+
+    return () => {
+      window.clearInterval(heartbeat);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("pagehide", handleUnload);
+      handleUnload();
+    };
+  }, [updatePresence]);
+
+  // Fetch IP
+  useEffect(() => {
+    const fetchIp = async () => {
+      try {
+        const res = await axios.get("https://api.ipify.org?format=json");
+        setIp(res.data.ip);
+      } catch (error) {
+        console.error("Failed to fetch IP:", error);
+      }
+    };
+    fetchIp();
+  }, []);
+
+  // UA parser
+  useEffect(() => {
+    const parser = new UAParser();
+    const result = parser.getResult();
+    const deviceInfoString = [
+      `OS: ${result.os.name || "Unknown"} ${result.os.version || ""}`,
+      `Browser: ${result.browser.name || "Unknown"} ${result.browser.version || ""}`,
+      `Device Type: ${result.device.type || "Desktop"}`,
+      `Device Model: ${result.device.vendor || ""} ${result.device.model || ""}`,
+    ]
+      .join(" | ")
+      .trim();
+    setDeviceInfo(deviceInfoString);
+  }, []);
+
+  // Live ban check
+  useEffect(() => {
+    if (!ip) return;
+    const banDocRef = firestoreDoc(db, "bannedIps", ip);
+    const unsubscribe = onSnapshot(banDocRef, (docSnap) => {
+      if (docSnap.exists() && docSnap.data().banned) {
+        setIsBanned(true);
+        setBanReason(docSnap.data().reason || "");
+      } else {
+        setIsBanned(false);
+        setBanReason("");
+      }
+    });
+    return () => unsubscribe();
+  }, [ip]);
+
+  const handleThemeToggle = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
+
   if (isBanned) {
     return <BannedView isDark={isDark} banReason={banReason} onThemeToggle={handleThemeToggle} />;
   }
-
-  const showStartOver = message || attachedImages.length > 0 || customColorEnabled || showIdentity;
 
   return (
     <div
@@ -1545,16 +1673,16 @@ export default function ConfessionPage() {
 
       <div className="flex-1 w-full flex flex-col items-center justify-center px-2 sm:px-4 py-10">
         <div className="relative w-full max-w-2xl mx-auto">
-          {/* Floating Blobs */}
+          {/* Floating Blobs — hidden on mobile */}
           <div
-            className={`absolute -top-20 -left-20 w-40 h-40 sm:w-60 sm:h-60 rounded-full opacity-30 blur-2xl z-0 animate-pulse bg-gradient-to-br ${
+            className={`hidden sm:block absolute -top-20 -left-20 w-40 h-40 sm:w-60 sm:h-60 rounded-full opacity-30 blur-2xl z-0 animate-pulse bg-gradient-to-br ${
               isDark
                 ? "from-gray-700 via-gray-900 to-black"
                 : "from-indigo-200 via-sky-100 to-white"
             }`}
           />
           <div
-            className={`absolute -bottom-20 -right-20 w-40 h-40 sm:w-60 sm:h-60 rounded-full opacity-30 blur-2xl z-0 animate-pulse bg-gradient-to-tr ${
+            className={`hidden sm:block absolute -bottom-20 -right-20 w-40 h-40 sm:w-60 sm:h-60 rounded-full opacity-30 blur-2xl z-0 animate-pulse bg-gradient-to-tr ${
               isDark
                 ? "from-gray-700 via-gray-900 to-black"
                 : "from-purple-200 via-pink-100 to-white"
@@ -1562,7 +1690,7 @@ export default function ConfessionPage() {
           />
 
           <div
-            className={`relative z-10 rounded-2xl sm:rounded-3xl shadow-2xl border backdrop-blur-2xl overflow-hidden ${
+            className={`relative z-10 rounded-2xl sm:rounded-3xl shadow-lg sm:shadow-2xl border backdrop-blur-sm sm:backdrop-blur-2xl overflow-hidden ${
               isDark
                 ? "border-white/10 bg-gradient-to-br from-gray-900/80 via-black/90 to-gray-800/80"
                 : "border-black/10 bg-white/90"
@@ -1570,129 +1698,13 @@ export default function ConfessionPage() {
           >
             <FormHeader isDark={isDark} />
 
-            <form
-              onSubmit={handleSubmit}
-              className="p-4 sm:p-8 md:p-12 space-y-6 sm:space-y-8"
-              noValidate
-            >
-              {showStartOver && (
-                <div className="flex justify-end -mb-2">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className={`text-xs font-semibold underline underline-offset-2 transition ${
-                      isDark ? "text-gray-500 hover:text-gray-300" : "text-slate-400 hover:text-slate-600"
-                    }`}
-                  >
-                    Start over
-                  </button>
-                </div>
-              )}
-
-              {draftRestored && (
-                <DraftBanner isDark={isDark} onDiscard={handleDiscardDraft} />
-              )}
-
-              <TextareaSection
-                value={message}
-                onChange={handleMessageChange}
-                wordCount={wordCount}
-                isDark={isDark}
-                submitAttempted={submitAttempted}
-                onFocus={handleTextareaFocus}
-                onBlur={handleTextareaBlur}
-                draftRestored={draftRestored}
-                setDraftRestored={setDraftRestored}
-              />
-
-              <div className="space-y-3">
-                <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-500" : "text-slate-400"}`}>
-                  EXTRAS
-                </p>
-
-                <CustomColorSection
-                  isDark={isDark}
-                  enabled={customColorEnabled}
-                  color={customColor}
-                  onToggle={handleColorToggle}
-                  onChange={handleColorChange}
-                />
-
-                <ImageSection
-                  isDark={isDark}
-                  images={attachedImages}
-                  openExtra={openExtra}
-                  onToggleExtra={toggleExtra}
-                  onImageSelect={handleImageSelect}
-                  onRemoveImage={removeImage}
-                  onImageDrop={handleImageDrop}
-                  onImageDragOver={handleImageDragOver}
-                  onImageDragLeave={handleImageDragLeave}
-                  isDragging={isDraggingImage}
-                  imageError={imageError}
-                  imageInputRef={imageInputRef}
-                />
-
-                <IdentitySection
-                  isDark={isDark}
-                  showIdentity={showIdentity}
-                  onToggle={handleIdentityToggle}
-                  username={username}
-                  usernameError={usernameError}
-                  usernameIsValid={usernameIsValid}
-                  onUsernameChange={handleUsernameChange}
-                  onUsernameBlur={handleUsernameBlur}
-                  identityConfirmed={identityConfirmed}
-                  onConfirmChange={handleConfirmChange}
-                  usernameInputRef={usernameInputRef}
-                />
-              </div>
-
-              <TermsSection isDark={isDark} agreed={agreed} onChange={handleAgreedChange} />
-
-              {submitAttempted && !canSubmit && !loading && (
-                <div
-                  className={`rounded-xl border p-3 sm:p-4 text-xs sm:text-sm animate-[fadeIn_0.25s_ease] ${
-                    isDark
-                      ? "bg-amber-500/10 border-amber-400/20 text-amber-200"
-                      : "bg-amber-50 border-amber-200 text-amber-800"
-                  }`}
-                >
-                  <p className="font-semibold mb-1.5">A few things left:</p>
-                  <ul className="space-y-1">
-                    <ChecklistItem done={!!message.trim()}>Write your confession</ChecklistItem>
-                    <ChecklistItem done={agreed}>Accept the Terms and Conditions</ChecklistItem>
-                    {showIdentity && (
-                      <>
-                        <ChecklistItem done={usernameIsValid && !!username}>Enter a valid username</ChecklistItem>
-                        <ChecklistItem done={identityConfirmed}>Confirm your username is accurate</ChecklistItem>
-                      </>
-                    )}
-                  </ul>
-                </div>
-              )}
-
-              <SubmitButton
-                isDark={isDark}
-                loading={loading}
-                imageUploading={imageUploading}
-                canSubmit={canSubmit}
-                showIdentity={showIdentity}
-              />
-            </form>
-
-            <FeedbackToasts
+            <ConfessionForm
               isDark={isDark}
-              formError={formError}
-              success={success}
-              showFeedback={showFeedback}
-              cooldownError={cooldownError}
-              profanityError={profanityError}
-              showIdentity={showIdentity}
-              identityConfirmed={identityConfirmed}
+              ip={ip}
+              deviceInfo={deviceInfo}
+              updatePresence={updatePresence}
+              presenceStatusRef={presenceStatusRef}
             />
-
-            <SecurityFooter isDark={isDark} showIdentity={showIdentity} />
           </div>
         </div>
 
