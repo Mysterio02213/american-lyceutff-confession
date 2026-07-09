@@ -1717,7 +1717,7 @@ export default function AdminPage() {
                                       type="button"
                                       onClick={() => {
                                         const reasons = detail.reasons.join(", ");
-                                        const msg = `Hi @${detail.instagram},\n\nWe've received your report${detail.reasons.length > 1 ? "s" : ""} (Reason${detail.reasons.length > 1 ? "s" : ""}: ${reasons}). Could you please confirm this report is accurate? Reply if you have more context.\n\nThank you for helping keep the community safe.`;
+                                        const msg = `Hi @${detail.instagram},\n\nWe got your report${detail.reasons.length > 1 ? "s" : ""} (Reason${detail.reasons.length > 1 ? "s" : ""}: ${reasons}). Can you confirm if this report was actually sent by you? Reply if you have more context.`;
                                         navigator.clipboard.writeText(msg);
                                         setCopiedTemplate(`confirm-${idx}`);
                                         setTimeout(() => setCopiedTemplate(null), 2000);
