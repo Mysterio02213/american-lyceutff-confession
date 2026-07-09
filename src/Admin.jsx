@@ -39,6 +39,8 @@ import {
   ImageOff,
   Flag,
   AtSign,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 
 function TruncatedConfession({ text, maxLength = 200 }) {
@@ -492,6 +494,7 @@ export default function AdminPage() {
   const [showBanModal, setShowBanModal] = useState(false);
   const [banLoading, setBanLoading] = useState(false);
   const [unbanLoading, setUnbanLoading] = useState(false);
+  const [copiedTemplate, setCopiedTemplate] = useState(null);
 
   // Check if selected confession's IP is banned
   useEffect(() => {
@@ -1666,6 +1669,84 @@ export default function AdminPage() {
                             </ul>
                           </div>
                         ) : null}
+
+                        {/* Copyable response templates — grouped by reporter */}
+                        {selectedConfession.reportDetails?.length > 0 && (
+                          <div className="pt-2 border-t border-red-500/10 space-y-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wide text-red-300/80 block">
+                              Quick Responses
+                            </span>
+                            {(() => {
+                              const seen = {};
+                              const uniq = selectedConfession.reportDetails.filter((d) => {
+                                const key = d.instagram || "unknown";
+                                if (seen[key]) { seen[key].reasons.push(d.reason); return false; }
+                                seen[key] = { reasons: [d.reason] };
+                                return true;
+                              }).map((d) => ({ ...d, reasons: seen[d.instagram || "unknown"].reasons }));
+                              return uniq.map((detail, idx) => (
+                                <div key={idx} className="rounded-lg border border-white/10 bg-white/[0.03] p-3 space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[11px] font-semibold text-red-200 flex items-center gap-1">
+                                      <AtSign size={10} />
+                                      <a
+                                        href={`https://instagram.com/${detail.instagram}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="underline hover:text-red-100 transition"
+                                      >
+                                        {detail.instagram}
+                                      </a>
+                                    </span>
+                                    <span className="text-[10px] text-red-400/50 font-mono">
+                                      {detail.reasons.length} report{detail.reasons.length > 1 ? "s" : ""}
+                                    </span>
+                                  </div>
+                                  {detail.reasons.length > 0 && (
+                                    <div className="text-[10px] text-red-300/60 space-y-0.5">
+                                      {detail.reasons.map((r, ri) => (
+                                        <div key={ri} className="flex items-start gap-1">
+                                          <span className="text-red-400/40 mt-0.5">&#8226;</span>
+                                          <span>{r}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex gap-1.5 pt-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const reasons = detail.reasons.join(", ");
+                                        const msg = `Hi @${detail.instagram},\n\nWe've received your report${detail.reasons.length > 1 ? "s" : ""} (Reason${detail.reasons.length > 1 ? "s" : ""}: ${reasons}). Could you please confirm this report is accurate? Reply if you have more context.\n\nThank you for helping keep the community safe.`;
+                                        navigator.clipboard.writeText(msg);
+                                        setCopiedTemplate(`confirm-${idx}`);
+                                        setTimeout(() => setCopiedTemplate(null), 2000);
+                                      }}
+                                      className="flex-1 flex items-center justify-center gap-1 text-[10px] font-mono bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-lg py-1.5 hover:bg-emerald-500/20 transition"
+                                    >
+                                      <Check size={10} />
+                                      {copiedTemplate === `confirm-${idx}` ? "Copied!" : "Confirm"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const reasons = detail.reasons.join(", ");
+                                        const msg = `Hi @${detail.instagram},\n\nWe've reviewed your report${detail.reasons.length > 1 ? "s" : ""} (Reason${detail.reasons.length > 1 ? "s" : ""}: ${reasons}). The confession does not violate our guidelines, so your report${detail.reasons.length > 1 ? "s have" : " has"} been rejected.\n\n⚠️ Filing false reports violates our terms and may lead to a ban. Please only flag content that genuinely breaks the rules.`;
+                                        navigator.clipboard.writeText(msg);
+                                        setCopiedTemplate(`reject-${idx}`);
+                                        setTimeout(() => setCopiedTemplate(null), 2000);
+                                      }}
+                                      className="flex-1 flex items-center justify-center gap-1 text-[10px] font-mono bg-red-500/10 border border-red-500/30 text-red-300 rounded-lg py-1.5 hover:bg-red-500/20 transition"
+                                    >
+                                      <ShieldX size={10} />
+                                      {copiedTemplate === `reject-${idx}` ? "Copied!" : "Reject"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        )}
 
                         <div className="pt-2 border-t border-red-500/10">
                           <button
